@@ -118,6 +118,7 @@ const routes = {
   '#browse': renderBrowse,
   '#profile': renderProfile,
   '#messages': renderMessages,
+  '#message': renderMessageThread,
   '#support': renderSupport,
   '#admin': renderAdmin,
   '#auth': renderAuthGate,
@@ -129,19 +130,35 @@ const routes = {
 };
 
 function navigate(hash){
+  console.log('navigate called with hash:', hash);
   const required = gateIfNeeded(hash);
+  console.log('gateIfNeeded returned:', required);
   const navLinks = document.querySelectorAll('.tt-nav__link');
   navLinks.forEach(l => l.classList.toggle('is-active', l.dataset.route === (required || hash)));
   const route = routes[required || hash] || routes['#home'];
+  console.log('Executing route for:', required || hash);
   route();
 }
 
 function gateIfNeeded(targetHash){
   const s = getSession();
-  if(!s) return '#auth';
+  console.log('gateIfNeeded called with:', targetHash, 'session:', s);
+  if(!s) {
+    console.log('No session, returning #auth');
+    return '#auth';
+  }
+  
+  // Allow access to messaging routes even without complete profile
+  if(targetHash === '#message' || targetHash === '#messages'){
+    console.log('Messaging route, allowing access');
+    return null;
+  }
+  
   if(!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0){
+    console.log('Incomplete profile, returning #create-profile');
     return '#create-profile';
   }
+  console.log('Profile complete, allowing access');
   return null;
 }
 
@@ -302,27 +319,216 @@ function renderProfile(){
   `);
 }
 
+// Global variable to track selected conversation
+let selectedConversation = null;
+
 function renderMessages(){
   const session = getSession();
   const messages = load(STORAGE_KEYS.MESSAGES, []);
-  const threads = groupBy(messages.filter(m => m.to===session?.id || m.from===session?.id), m => m.threadId);
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  
+  // Filter messages to only show conversations with providers
+  const providerIds = providers.map(p => p.id);
+  const providerMessages = messages.filter(m => 
+    (m.to === session?.id || m.from === session?.id) && 
+    (providerIds.includes(m.to) || providerIds.includes(m.from))
+  );
+  
+  const threads = groupBy(providerMessages, m => m.threadId);
+  const threadList = Object.values(threads).map(thread => {
+    const last = thread[thread.length-1];
+    const partner = last.from === session?.id ? last.toName : last.fromName;
+    const partnerId = last.from === session?.id ? last.to : last.from;
+    const partnerProvider = providers.find(p => p.id === partnerId);
+    const preview = last.text.length > 50 ? last.text.substring(0, 50) + '...' : last.text;
+    const timeAgo = getTimeAgo(last.createdAt);
+    const isUnread = last.from !== session?.id; // Simple unread logic
+    
+    return {
+      threadId: last.threadId,
+      partnerId,
+      partner,
+      partnerProvider,
+      preview,
+      timeAgo,
+      isUnread,
+      lastMessage: last,
+      allMessages: thread
+    };
+  }).sort((a, b) => b.lastMessage.createdAt - a.lastMessage.createdAt); // Sort by most recent
+  
   mount(h`
     <section>
       <h2 class="tt-section-title">Messages</h2>
       ${session ? '' : '<div class="tt-card__meta">Sign in to view messages.</div>'}
-      <div class="tt-grid">
-        ${Object.values(threads).map(thread => {
-          const last = thread[thread.length-1];
-          const partner = last.from === session?.id ? last.toName : last.fromName;
-          return h`<article class="tt-card"><div class="tt-card__body">
-            <div class="tt-card__title">${partner}</div>
-            <div class="tt-card__meta">${new Date(last.createdAt).toLocaleString()}</div>
-            <div>${last.text}</div>
-          </div></article>`
-        }).join('') || '<div>No messages yet.</div>'}
+      
+      <div style="display: flex; gap: 20px; height: 600px;">
+        <!-- Message List Column -->
+        <div style="flex: 0 0 350px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+          <div style="background: #f8f9fa; padding: 16px; border-bottom: 1px solid #e0e0e0;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Conversations</h3>
+          </div>
+          <div style="overflow-y: auto; height: calc(100% - 60px);">
+            ${threadList.length > 0 ? threadList.map(thread => h`
+              <div style="padding: 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background-color 0.2s; ${thread.isUnread ? 'background: #f0f8ff;' : ''} ${selectedConversation?.threadId === thread.threadId ? 'background: #e3f2fd; border-left: 3px solid #007bff;' : ''}" 
+                   onclick="selectConversation('${thread.threadId}', '${thread.partnerId}', '${thread.partner}')"
+                   onmouseover="this.style.backgroundColor='${selectedConversation?.threadId === thread.threadId ? '#e3f2fd' : '#f5f5f5'}'"
+                   onmouseout="this.style.backgroundColor='${selectedConversation?.threadId === thread.threadId ? '#e3f2fd' : (thread.isUnread ? '#f0f8ff' : 'transparent')}'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px;">
+                    ${thread.partner.charAt(0).toUpperCase()}
+                  </div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <h4 style="margin: 0; font-size: 16px; font-weight: 600; color: #333; ${thread.isUnread ? 'font-weight: 700;' : ''}">${thread.partner}</h4>
+                      <span style="font-size: 12px; color: #666;">${thread.timeAgo}</span>
+                    </div>
+                    <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${thread.preview}
+                    </p>
+                    ${thread.partnerProvider ? h`
+                      <div style="margin-top: 4px;">
+                        <span style="font-size: 12px; color: #007bff; background: #e3f2fd; padding: 2px 6px; border-radius: 4px;">
+                          ${thread.partnerProvider.services.join(', ')}
+                        </span>
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('') : h`
+              <div style="padding: 40px 20px; text-align: center; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+                <h3 style="margin: 0 0 8px 0; color: #333;">No messages yet</h3>
+                <p style="margin: 0;">Start a conversation by booking a service!</p>
+              </div>
+            `}
+          </div>
+        </div>
+        
+        <!-- Message Thread Column -->
+        <div style="flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden;">
+          ${selectedConversation ? renderConversationView(selectedConversation) : h`
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; background: #fafafa;">
+              <div style="text-align: center; color: #666;">
+                <div style="font-size: 64px; margin-bottom: 16px;">📱</div>
+                <h3 style="margin: 0 0 8px 0; color: #333;">Select a conversation</h3>
+                <p style="margin: 0;">Click on a conversation to start messaging</p>
+              </div>
+            </div>
+          `}
+        </div>
       </div>
     </section>
   `);
+}
+
+function selectConversation(threadId, partnerId, partnerName){
+  const session = getSession();
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const threadMessages = messages.filter(m => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt);
+  
+  selectedConversation = {
+    threadId,
+    partnerId,
+    partnerName,
+    messages: threadMessages
+  };
+  
+  renderMessages(); // Re-render to show the selected conversation
+}
+
+function renderConversationView(conversation){
+  const session = getSession();
+  
+  return h`
+    <!-- Conversation Header -->
+    <div style="background: #f8f9fa; padding: 16px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 12px;">
+      <div style="width: 40px; height: 40px; border-radius: 50%; background: #007bff; color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px;">
+        ${conversation.partnerName.charAt(0).toUpperCase()}
+      </div>
+      <div>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 600; color: #333;">${conversation.partnerName}</h3>
+        <p style="margin: 0; font-size: 14px; color: #666;">Active now</p>
+      </div>
+    </div>
+    
+    <!-- Messages Area -->
+    <div id="conversationMessages" style="flex: 1; overflow-y: auto; padding: 16px; background: #fafafa;">
+      ${conversation.messages.map(msg => {
+        const isFromMe = msg.from === session.id;
+        return h`
+          <div style="margin: 8px 0; display: flex; ${isFromMe ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}">
+            <div style="max-width: 70%; padding: 12px 16px; border-radius: 18px; ${isFromMe ? 'background: #007bff; color: white;' : 'background: white; border: 1px solid #e0e0e0;'}">
+              <div style="font-size: 14px; line-height: 1.4;">${msg.text}</div>
+              <div style="font-size: 11px; opacity: 0.7; margin-top: 4px; text-align: ${isFromMe ? 'right' : 'left'};">
+                ${new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    
+    <!-- Message Input -->
+    <div style="padding: 16px; border-top: 1px solid #e0e0e0; background: white;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input id="inlineMessageInput" placeholder="Type your message..." style="flex: 1; padding: 12px 16px; border: 1px solid #e0e0e0; border-radius: 24px; outline: none; font-size: 14px;" onkeypress="if(event.key==='Enter') sendInlineMessage('${conversation.threadId}', '${conversation.partnerId}')" />
+        <button class="tt-button" onclick="sendInlineMessage('${conversation.threadId}', '${conversation.partnerId}')" style="border-radius: 50%; width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;">
+          ➤
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function sendInlineMessage(threadId, partnerId){
+  const session = getSession();
+  if(!session){ alert('Please sign in to send messages.'); return; }
+  
+  const messageInput = document.getElementById('inlineMessageInput');
+  const text = messageInput.value.trim();
+  if(!text){ alert('Please enter a message.'); return; }
+  
+  const partner = load(STORAGE_KEYS.PROVIDERS, []).find(p => p.id === partnerId);
+  if(!partner){ alert('Partner not found.'); return; }
+  
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  messages.push({ 
+    id: `m_${Date.now()}`, 
+    threadId, 
+    from: session.id, 
+    fromName: session.name, 
+    to: partnerId, 
+    toName: partner.name, 
+    text, 
+    createdAt: Date.now() 
+  });
+  save(STORAGE_KEYS.MESSAGES, messages);
+  
+  messageInput.value = '';
+  
+  // Update the selected conversation
+  if(selectedConversation && selectedConversation.threadId === threadId){
+    selectedConversation.messages = messages.filter(m => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt);
+  }
+  
+  renderMessages(); // Re-render to show the new message
+}
+
+function getTimeAgo(timestamp) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  
+  return new Date(timestamp).toLocaleDateString();
 }
 
 function renderSupport(){
@@ -364,6 +570,8 @@ function renderAdmin(){
           ${providers.map(p => h`<article class='tt-card'><div class='tt-card__body'>
             <div class='tt-card__title'>${p.name}</div>
             <div class='tt-card__meta'>${p.services.join(', ')}</div>
+            ${p.cwid ? `<div class='tt-card__meta'>CWID: ${p.cwid}</div>` : ''}
+            ${p.email ? `<div class='tt-card__meta'>Email: ${p.email}</div>` : ''}
             <div class='tt-card__actions'>
               <button class='tt-button tt-button--ghost' onclick="banProvider('${p.id}')">Remove/Ban</button>
             </div>
@@ -394,10 +602,35 @@ function renderAuthGate(){
 function submitAuthPage(){
   const cwid = document.getElementById('cwid_page').value.trim();
   const email = document.getElementById('email_page').value.trim();
-  if(!/^\d{5,9}$/.test(cwid)){ alert('Enter a valid CWID.'); return; }
+  if(!/^\d{8}$/.test(cwid)){ alert('Enter a valid CWID.'); return; }
   if(!/@crimson\.ua\.edu$/i.test(email)){ alert('Use your Crimson email.'); return; }
   const name = email.split('@')[0].replace('.', ' ');
-  setSession({ id:`u_${cwid}`, cwid, email, name, profile:null });
+  const userId = `u_${cwid}`;
+  
+  // Create basic provider profile immediately
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  if(!providers.find(p => p.id === userId)){
+    providers.push({ 
+      id: userId, 
+      name: name, 
+      services: ['New User'], 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: 0.5, 
+      bio: 'New user - profile setup pending', 
+      licenses: [], 
+      certifications: [], 
+      portfolio: [], 
+      socials: {}, 
+      availability: [], 
+      campus: 'UA',
+      cwid: cwid,
+      email: email
+    });
+    save(STORAGE_KEYS.PROVIDERS, providers);
+  }
+  
+  setSession({ id: userId, cwid, email, name, profile:null });
   location.hash = '#create-profile';
 }
 
@@ -538,10 +771,8 @@ function toggleServiceFilter(svc){
 
 // Booking flow
 function openBooking(providerId){
-  // Deprecated booking flow replaced by swap proposal
-  const providers = load(STORAGE_KEYS.PROVIDERS, []);
-  const p = providers.find(x => x.id === providerId);
-  proposeSwap(providerId, p.services[0], getTodayISO());
+  // Start a direct message with the provider
+  startDM(providerId);
 }
 
 function submitBooking(){ /* no-op in swap model */ }
@@ -576,9 +807,110 @@ function startDM(providerId){
   const p = load(STORAGE_KEYS.PROVIDERS, []).find(x=>x.id===providerId);
   const messages = load(STORAGE_KEYS.MESSAGES, []);
   const threadId = `t_${[session.id, providerId].sort().join('_')}`;
-  messages.push({ id:`m_${Date.now()}`, threadId, from: session.id, fromName: session.name, to: providerId, toName: p.name, text:'Hi! Is this time available?', createdAt: Date.now() });
+  messages.push({ id:`m_${Date.now()}`, threadId, from: session.id, fromName: session.name, to: providerId, toName: p.name, text:'Hi! I\'d like to book your service. When are you available?', createdAt: Date.now() });
   save(STORAGE_KEYS.MESSAGES, messages);
-  location.hash = '#messages';
+  openMessageThread(threadId, providerId);
+}
+
+function openMessageThread(threadId, partnerId){
+  console.log('openMessageThread called with:', { threadId, partnerId });
+  const newHash = `#message?thread=${encodeURIComponent(threadId)}&partner=${encodeURIComponent(partnerId)}`;
+  location.hash = newHash;
+  console.log('URL set to:', location.hash);
+  // Don't call renderMessageThread directly - let the hashchange event handle it
+}
+
+function renderMessageThread(){
+  const session = getSession();
+  if(!session){ 
+    console.log('No session found, redirecting to auth');
+    location.hash = '#auth'; 
+    return; 
+  }
+  
+  const urlParams = new URLSearchParams(location.hash.split('?')[1] || '');
+  const threadId = urlParams.get('thread');
+  const partnerId = urlParams.get('partner');
+  
+  console.log('renderMessageThread - threadId:', threadId, 'partnerId:', partnerId);
+  
+  if(!threadId || !partnerId){
+    console.log('Missing threadId or partnerId, redirecting to messages');
+    location.hash = '#messages';
+    return;
+  }
+  
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const threadMessages = messages.filter(m => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt);
+  const partner = load(STORAGE_KEYS.PROVIDERS, []).find(p => p.id === partnerId);
+  
+  console.log('Found partner:', partner);
+  console.log('Thread messages count:', threadMessages.length);
+  
+  if(!partner){
+    console.log('Partner not found, redirecting to messages');
+    location.hash = '#messages';
+    return;
+  }
+  
+  mount(h`
+    <section>
+      <button class="tt-chip" onclick="location.hash='#messages'">← Back to Messages</button>
+      <div class="tt-hero__card" style="margin-top: 12px;">
+        <h2 class="tt-section-title">Conversation with ${partner.name}</h2>
+        <div id="messageContainer" style="max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 16px; margin: 16px 0; background: #f9f9f9;">
+          ${threadMessages.map(msg => {
+            const isFromMe = msg.from === session.id;
+            return h`<div style="margin: 8px 0; display: flex; ${isFromMe ? 'justify-content: flex-end;' : 'justify-content: flex-start;'}">
+              <div style="max-width: 70%; padding: 8px 12px; border-radius: 12px; ${isFromMe ? 'background: #007bff; color: white;' : 'background: white; border: 1px solid #ddd;'}">
+                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 4px;">${isFromMe ? 'You' : msg.fromName}</div>
+                <div>${msg.text}</div>
+                <div style="font-size: 10px; opacity: 0.7; margin-top: 4px;">${new Date(msg.createdAt).toLocaleString()}</div>
+              </div>
+            </div>`
+          }).join('') || '<div style="text-align: center; color: #666; padding: 20px;">No messages yet</div>'}
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input id="messageInput" placeholder="Type your message..." style="flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;" onkeypress="if(event.key==='Enter') sendMessage('${threadId}', '${partnerId}')" />
+          <button class="tt-button" onclick="sendMessage('${threadId}', '${partnerId}')">Send</button>
+        </div>
+      </div>
+    </section>
+  `);
+  
+  // Scroll to bottom of messages
+  setTimeout(() => {
+    const container = document.getElementById('messageContainer');
+    if(container) container.scrollTop = container.scrollHeight;
+  }, 100);
+}
+
+function sendMessage(threadId, partnerId){
+  const session = getSession();
+  if(!session){ alert('Please sign in to send messages.'); return; }
+  
+  const messageInput = document.getElementById('messageInput');
+  const text = messageInput.value.trim();
+  if(!text){ alert('Please enter a message.'); return; }
+  
+  const partner = load(STORAGE_KEYS.PROVIDERS, []).find(p => p.id === partnerId);
+  if(!partner){ alert('Partner not found.'); return; }
+  
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  messages.push({ 
+    id: `m_${Date.now()}`, 
+    threadId, 
+    from: session.id, 
+    fromName: session.name, 
+    to: partnerId, 
+    toName: partner.name, 
+    text, 
+    createdAt: Date.now() 
+  });
+  save(STORAGE_KEYS.MESSAGES, messages);
+  
+  messageInput.value = '';
+  renderMessageThread();
 }
 
 function banProvider(id){
@@ -600,10 +932,35 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   e.preventDefault();
   const cwid = document.getElementById('cwid').value.trim();
   const email = document.getElementById('email').value.trim();
-  if(!/^\d{5,9}$/.test(cwid)){ alert('Enter a valid CWID.'); return; }
+  if(!/^\d{8}$/.test(cwid)){ alert('Enter a valid CWID (exactly 8 digits).'); return; }
   if(!/@crimson\.ua\.edu$/i.test(email)){ alert('Use your Crimson email.'); return; }
   const name = email.split('@')[0].replace('.', ' ');
-  setSession({ id:`u_${cwid}`, cwid, email, name });
+  const userId = `u_${cwid}`;
+  
+  // Create basic provider profile immediately
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  if(!providers.find(p => p.id === userId)){
+    providers.push({ 
+      id: userId, 
+      name: name, 
+      services: ['New User'], 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: 0.5, 
+      bio: 'New user - profile setup pending', 
+      licenses: [], 
+      certifications: [], 
+      portfolio: [], 
+      socials: {}, 
+      availability: [], 
+      campus: 'UA',
+      cwid: cwid,
+      email: email
+    });
+    save(STORAGE_KEYS.PROVIDERS, providers);
+  }
+  
+  setSession({ id: userId, cwid, email, name });
   document.getElementById('authDialog').close();
   navigate('#home');
 });
