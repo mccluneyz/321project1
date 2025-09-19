@@ -35,7 +35,7 @@ html,body{margin:0;padding:0;font-family:Inter,system-ui,-apple-system,Segoe UI,
 
 .tt-main{max-width:1120px;margin:20px auto;padding:80px 20px 0 20px}
 
-.tt-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:28px;align-items:center}
+.tt-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:28px;align-items:left}
 .tt-hero__title{font-size:2rem;line-height:1.2;margin:0 0 8px}
 .tt-hero__subtitle{margin:0;color:var(--ink-300)}
 .tt-hero__card{background:var(--white);padding:18px;border-radius:14px;box-shadow:var(--shadow)}

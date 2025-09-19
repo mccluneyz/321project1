@@ -130,35 +130,33 @@ const routes = {
 };
 
 function navigate(hash){
-  console.log('navigate called with hash:', hash);
   const required = gateIfNeeded(hash);
-  console.log('gateIfNeeded returned:', required);
   const navLinks = document.querySelectorAll('.tt-nav__link');
   navLinks.forEach(l => l.classList.toggle('is-active', l.dataset.route === (required || hash)));
   const route = routes[required || hash] || routes['#home'];
-  console.log('Executing route for:', required || hash);
   route();
 }
 
 function gateIfNeeded(targetHash){
   const s = getSession();
-  console.log('gateIfNeeded called with:', targetHash, 'session:', s);
+  
+  // Allow access to public routes without authentication
+  if(targetHash === '#home' || targetHash === '#browse' || targetHash === '#profile' || targetHash === '#support'){
+    return null;
+  }
+  
   if(!s) {
-    console.log('No session, returning #auth');
     return '#auth';
   }
   
   // Allow access to messaging routes even without complete profile
   if(targetHash === '#message' || targetHash === '#messages'){
-    console.log('Messaging route, allowing access');
     return null;
   }
   
   if(!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0){
-    console.log('Incomplete profile, returning #create-profile');
     return '#create-profile';
   }
-  console.log('Profile complete, allowing access');
   return null;
 }
 
@@ -258,9 +256,7 @@ function cardForProvider(p){
 }
 
 function viewProfile(id){
-  location.hash = '#profile';
-  history.replaceState(null, '', `#profile?id=${id}`);
-  renderProfile();
+  location.hash = `#profile?id=${id}`;
 }
 
 function renderProfile(){
@@ -269,7 +265,12 @@ function renderProfile(){
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const reviews = load(STORAGE_KEYS.REVIEWS, []);
   const id = new URL(location.href).hash.split('?')[1]?.split('=')[1];
-  const p = providers.find(x => x.id === id) || providers[0];
+  const p = providers.find(x => x.id === id);
+  if(!p){
+    alert(`Provider with ID "${id}" not found. Available providers: ${providers.map(p => p.name).join(', ')}`);
+    location.hash = '#browse';
+    return;
+  }
   const pReviews = reviews.filter(r => r.providerId === p.id);
 
   mount(h`
@@ -289,8 +290,11 @@ function renderProfile(){
             ${p.socials.linkedin ? `<a class='tt-chip' href='https://www.linkedin.com/in/${p.socials.linkedin}' target='_blank'>LinkedIn</a>`:''}
           </div>
           <div class="tt-card__actions">
-            <button class="tt-button" onclick="proposeSwap('${p.id}', '${p.services[0]}', '${getTodayISO()}')">Propose Swap</button>
-            <button class="tt-button tt-button--outline" onclick="startDM('${p.id}')">Message</button>
+            ${getSession() ? 
+              `<button class="tt-button" onclick="proposeSwap('${p.id}', '${p.services[0]}', '${getTodayISO()}')">Propose Swap</button>
+               <button class="tt-button tt-button--outline" onclick="startDM('${p.id}')">Message</button>` :
+              `<button class="tt-button" onclick="location.hash='#auth'">Sign in to Contact</button>`
+            }
           </div>
         </div>
         <div class="tt-hero__card">
@@ -307,13 +311,18 @@ function renderProfile(){
       <div style="margin-top:16px" class="tt-hero__card">
         <div class="tt-section-title">Reviews</div>
         ${pReviews.map(r => h`<div style="padding:8px 0;border-bottom:1px solid #eee">⭐ ${r.rating} — ${r.user}<br/>${r.text}</div>`).join('') || '<div>No reviews yet.</div>'}
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <select id="reviewRating">
-            ${[5,4,3,2,1].map(v=>`<option value="${v}">${v} stars</option>`).join('')}
-          </select>
-          <input id="reviewText" placeholder="Write a review..." style="flex:1;min-width:220px" />
-          <button class="tt-button tt-button--ghost" onclick="submitReview('${p.id}')">Submit</button>
-        </div>
+        ${getSession() ? 
+          `<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="reviewRating">
+              ${[5,4,3,2,1].map(v=>`<option value="${v}">${v} stars</option>`).join('')}
+            </select>
+            <input id="reviewText" placeholder="Write a review..." style="flex:1;min-width:220px" />
+            <button class="tt-button tt-button--ghost" onclick="submitReview('${p.id}')">Submit</button>
+          </div>` :
+          `<div style="margin-top:8px;text-align:center">
+            <button class="tt-button tt-button--outline" onclick="location.hash='#auth'">Sign in to write a review</button>
+          </div>`
+        }
       </div>
     </section>
   `);
