@@ -33,6 +33,8 @@ function load(key, fallback){
 function save(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
 
 function seed(){
+  // Clear existing data to ensure fresh start with updated provider info
+  localStorage.removeItem(STORAGE_KEYS.PROVIDERS);
   if(!load(STORAGE_KEYS.PROVIDERS)){
     const providers = [
       {
@@ -42,13 +44,20 @@ function seed(){
         rating:4.9,
         reviewsCount:18,
         distanceMiles:1.2,
-        bio:'Lash and nail specialist with 3+ years of experience and state license.',
-        licenses:['State Esthetics License'],
-        certifications:['Sanitation Certified'],
-        portfolio:['https://images.unsplash.com/photo-1519014816548-bf5fe059798b?q=80&w=1200&auto=format&fit=crop'],
-        socials:{ instagram:'@ava.glow' },
+        bio:'Professional esthetician specializing in eyelash extensions, eyebrow shaping, and nail art. Licensed with 3+ years of experience. I provide mobile services on campus and maintain the highest standards of hygiene and safety.',
+        licenses:['State Esthetics License', 'Mobile Service Permit'],
+        certifications:['Sanitation Certified', 'Advanced Lash Extension Training', 'Nail Art Specialist'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1570172619644-dfd03ed5f881?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1604654894610-df63bc536371?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ instagram:'@ava.glow', tiktok:'@avabeauty' },
         availability:[1,2,4],
-        campus:'UA'
+        campus:'UA',
+        cwid:'12345678',
+        email:'ava.johnson@crimson.ua.edu'
       },
       {
         id:'p2',
@@ -57,13 +66,20 @@ function seed(){
         rating:4.8,
         reviewsCount:25,
         distanceMiles:0.8,
-        bio:'Precision fades and braids. Mobile appointments available on campus.',
-        licenses:['Cosmetology License'],
-        certifications:[],
-        portfolio:['https://images.unsplash.com/photo-1593702275687-c3b6b7f1d1d5?q=80&w=1200&auto=format&fit=crop'],
-        socials:{ instagram:'@cutsbyml' },
+        bio:'Master barber specializing in precision fades, braids, and modern cuts. 4+ years experience with mobile appointments available on campus. I stay updated with the latest trends and techniques in men\'s and women\'s hair styling.',
+        licenses:['Cosmetology License', 'Barber License'],
+        certifications:['Master Barber Certification', 'Braiding Specialist', 'Color Theory Certified'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ instagram:'@cutsbyml', tiktok:'@marcuscuts' },
         availability:[3,5],
-        campus:'UA'
+        campus:'UA',
+        cwid:'23456789',
+        email:'marcus.lee@crimson.ua.edu'
       },
       {
         id:'p3',
@@ -72,13 +88,19 @@ function seed(){
         rating:5.0,
         reviewsCount:12,
         distanceMiles:2.4,
-        bio:'MIS/CS tutor for data structures, SQL, and systems. TA experience.',
+        bio:'Senior Computer Science student and Teaching Assistant specializing in MIS/CS courses. Expert in data structures, algorithms, SQL, and systems programming. Available for one-on-one tutoring and group study sessions.',
         licenses:[],
-        certifications:['CompTIA A+'],
-        portfolio:[],
-        socials:{ linkedin:'priya-patel' },
+        certifications:['CompTIA A+', 'Teaching Assistant Certification', 'AWS Cloud Practitioner', 'Google Data Analytics'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ linkedin:'priya-patel-cs', github:'priyapatel' },
         availability:[1,2,3,4,5],
-        campus:'UA'
+        campus:'UA',
+        cwid:'34567890',
+        email:'priya.patel@crimson.ua.edu'
       },
       {
         id:'p4',
@@ -87,21 +109,76 @@ function seed(){
         rating:4.7,
         reviewsCount:9,
         distanceMiles:1.0,
-        bio:'Rides around campus, jump starts, simple plumbing/electrical fixes.',
-        licenses:['Valid Driver License'],
-        certifications:['Basic Electrical Safety'],
-        portfolio:[],
-        socials:{ instagram:'@tidefix' },
+        bio:'Reliable transportation and handyman services around campus. I provide rides, jump starts, and basic maintenance including plumbing and electrical fixes. CPR certified with a clean driving record.',
+        licenses:['Valid Driver License', 'Commercial Vehicle Permit'],
+        certifications:['Basic Electrical Safety', 'CPR Certified', 'First Aid Certified', 'Automotive Repair Basics'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1581094794329-c8112a89af12?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ instagram:'@tidefix', facebook:'DiegoRamirezServices' },
         availability:[6,0],
-        campus:'UA'
+        campus:'UA',
+        cwid:'45678901',
+        email:'diego.ramirez@crimson.ua.edu'
+      },
+      {
+        id:'p5',
+        name:'Sophia Chen',
+        services:['Photography'],
+        rating:4.9,
+        reviewsCount:15,
+        distanceMiles:1.5,
+        bio:'Professional photographer specializing in portraits, events, and lifestyle photography. Available for graduation photos, parties, and special events on campus. High-quality equipment and quick turnaround times.',
+        licenses:['Business Photography License'],
+        certifications:['Adobe Certified Professional', 'Wedding Photography Specialist', 'Portrait Photography Master'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1554048612-b6a4bc4ff292?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ instagram:'@sophia.captures', portfolio:'sophiachenphoto.com' },
+        availability:[1,2,3,4,5,6],
+        campus:'UA',
+        cwid:'56789012',
+        email:'sophia.chen@crimson.ua.edu'
+      },
+      {
+        id:'p6',
+        name:'Jake Thompson',
+        services:['Pet Care'],
+        rating:4.8,
+        reviewsCount:22,
+        distanceMiles:0.5,
+        bio:'Animal lover and experienced pet sitter. I provide dog walking, pet sitting, and basic grooming services. Available for overnight care and have experience with various breeds and special needs pets.',
+        licenses:['Pet Care Business License'],
+        certifications:['Pet First Aid Certified', 'Dog Training Basics', 'Animal Behavior Specialist'],
+        portfolio:[
+          'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=1200&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=1200&auto=format&fit=crop'
+        ],
+        socials:{ instagram:'@jakespetcare', facebook:'JakesPetCareUA' },
+        availability:[1,2,3,4,5,6,0],
+        campus:'UA',
+        cwid:'67890123',
+        email:'jake.thompson@crimson.ua.edu'
       }
     ];
     save(STORAGE_KEYS.PROVIDERS, providers);
   }
   if(!load(STORAGE_KEYS.REVIEWS)){
     save(STORAGE_KEYS.REVIEWS, [
-      { id:'r1', providerId:'p1', user:'Sam', rating:5, text:'Great lashes and super professional!', createdAt: Date.now()-86400000*2 },
-      { id:'r2', providerId:'p2', user:'Taylor', rating:4, text:'Clean fade and on time.', createdAt: Date.now()-86400000*5 }
+      { id:'r1', providerId:'p1', user:'Sam', rating:5, text:'Ava did an amazing job on my lash extensions! Super professional and clean workspace.', createdAt: Date.now()-86400000*2 },
+      { id:'r2', providerId:'p2', user:'Taylor', rating:4, text:'Marcus gave me the perfect fade. Really knows his craft and was on time.', createdAt: Date.now()-86400000*5 },
+      { id:'r3', providerId:'p2', user:'Jordan', rating:5, text:'Best haircut I\'ve had on campus! Marcus is incredibly skilled with braids too.', createdAt: Date.now()-86400000*3 },
+      { id:'r4', providerId:'p3', user:'Alex', rating:5, text:'Priya helped me understand data structures so much better. Great tutor!', createdAt: Date.now()-86400000*7 },
+      { id:'r5', providerId:'p4', user:'Casey', rating:4, text:'Diego helped me jump start my car and was super reliable. Great service!', createdAt: Date.now()-86400000*4 },
+      { id:'r6', providerId:'p5', user:'Morgan', rating:5, text:'Sophia took amazing graduation photos! Professional quality and quick turnaround.', createdAt: Date.now()-86400000*6 },
+      { id:'r7', providerId:'p6', user:'Riley', rating:5, text:'Jake took great care of my dog while I was away. Highly recommend!', createdAt: Date.now()-86400000*8 },
+      { id:'r8', providerId:'p1', user:'Blake', rating:5, text:'Ava\'s nail art is incredible! She\'s so creative and detail-oriented.', createdAt: Date.now()-86400000*1 }
     ]);
   }
   if(!load(STORAGE_KEYS.BOOKINGS)){
@@ -140,23 +217,47 @@ function navigate(hash){
 function gateIfNeeded(targetHash){
   const s = getSession();
   
-  // Allow access to public routes without authentication
-  if(targetHash === '#home' || targetHash === '#browse' || targetHash === '#profile' || targetHash === '#support'){
-    return null;
+  // Require authentication for ALL pages except auth itself
+  if(targetHash !== '#auth'){
+    if(!s) {
+      return '#auth';
+    }
+    
+    // Check if user is admin - skip profile creation
+    const adminEmails = [
+      'faarnaoperez@crimson.ua.edu',
+      'dhnguyen3@crimson.ua.edu', 
+      'zkmccluney@crimson.ua.edu',
+      'jdmiller16@crimson.ua.edu'
+    ];
+    
+    const isAdmin = adminEmails.includes(s.email);
+    
+    // Check admin access restriction
+    if(targetHash === '#admin'){
+      if(!isAdmin){
+        alert('Access denied. Only authorized administrators can access this page.');
+        return '#home';
+      }
+      return null; // Allow admin access
+    }
+    
+    // Allow access to messaging routes even without complete profile
+    if(targetHash === '#message' || targetHash === '#messages'){
+      return null;
+    }
+    
+    // Skip profile creation for admins - they go directly to admin dashboard
+    if(isAdmin && (!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0)){
+      return '#admin';
+    }
+    
+    // Require profile setup for other routes (non-admins)
+    if(targetHash !== '#create-profile' && (!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0)){
+      return '#create-profile';
+    }
   }
   
-  if(!s) {
-    return '#auth';
-  }
-  
-  // Allow access to messaging routes even without complete profile
-  if(targetHash === '#message' || targetHash === '#messages'){
-    return null;
-  }
-  
-  if(!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0){
-    return '#create-profile';
-  }
   return null;
 }
 
@@ -187,26 +288,103 @@ function renderHome(){
   if(gate){ location.hash = gate; return; }
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const top = providers.slice(0,4);
+  const session = getSession();
+  
   mount(h`
-    <section class="tt-hero">
-      <div>
-        <h1 class="tt-hero__title">Find student services at student prices.</h1>
-        <p class="tt-hero__subtitle">Book licensed and peer-recommended providers for everything from lashes to tutoring, right on campus.</p>
-        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="tt-button" onclick="location.hash='#browse'">Browse Services</button>
-          <button class="tt-button tt-button--outline" onclick="location.hash='#support'">Contact Support</button>
-        </div>
-        <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-          ${SERVICES.map(s => `<span class="tt-badge">${s}</span>`).join('')}
+    <div style="min-height:100vh;background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+      <!-- Hero Section -->
+      <div style="background:white;padding:80px 20px;text-align:center;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg, rgba(153,0,0,0.05) 0%, rgba(255,107,107,0.05) 100%);"></div>
+        <div style="position:relative;max-width:800px;margin:0 auto;">
+          <div style="width:100px;height:100px;background:linear-gradient(135deg,var(--crimson),#ff6b6b);border-radius:50%;margin:0 auto 32px;display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 12px 40px rgba(153,0,0,0.2);">
+            🎓
+          </div>
+          <h1 style="margin:0;font-size:48px;font-weight:800;color:var(--ink);margin-bottom:16px;line-height:1.1">
+            Find student services at student prices
+          </h1>
+          <p style="margin:0;font-size:20px;color:var(--ink-600);margin-bottom:32px;line-height:1.5">
+            Connect with licensed and peer-recommended providers for everything from beauty services to tutoring, right on campus.
+          </p>
+          <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:40px">
+            <button onclick="location.hash='#browse'" style="background:var(--crimson);color:white;border:none;padding:18px 36px;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 25px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.3)'">
+              🔍 Browse Services
+            </button>
+            <button onclick="location.hash='#support'" style="background:white;color:var(--crimson);border:2px solid var(--crimson);padding:16px 34px;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+              💬 Contact Support
+            </button>
+          </div>
+          
+          <!-- Services Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;max-width:600px;margin:0 auto">
+            ${SERVICES.map(s => `<div style="background:white;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1);text-align:center;font-weight:500;color:var(--ink);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">${s}</div>`).join('')}
+          </div>
         </div>
       </div>
-      <div class="tt-hero__card">
-        <div class="tt-section-title">Trending providers</div>
-        <div class="tt-grid">
-        ${top.map(cardForProvider).join('')}
+      
+      <!-- Featured Providers Section -->
+      <div style="max-width:1200px;margin:0 auto;padding:80px 20px;">
+        <div style="text-align:center;margin-bottom:48px">
+          <h2 style="margin:0;font-size:36px;font-weight:700;color:var(--ink);margin-bottom:12px">Featured Providers</h2>
+          <p style="margin:0;font-size:18px;color:var(--ink-600)">Top-rated students ready to help you</p>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
+          ${top.map(p => h`
+            <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+              <div style="height:200px;background-image:url('${p.portfolio[0] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop'}');background-size:cover;background-position:center;position:relative;">
+                <div style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:20px;font-weight:600;color:var(--ink)">
+                  ⭐ ${p.rating}
+                </div>
+              </div>
+              <div style="padding:24px">
+                <h3 style="margin:0 0 8px;font-size:20px;font-weight:700;color:var(--ink)">${p.name}</h3>
+                <p style="margin:0 0 12px;color:var(--ink-600);font-size:14px">${p.services.join(' • ')} • ${p.distanceMiles} mi away</p>
+                <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px;line-height:1.4">${p.bio.substring(0,100)}${p.bio.length > 100 ? '...' : ''}</p>
+                <div style="display:flex;gap:8px">
+                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:white;color:var(--crimson);border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+                    👁️ View Profile
+                  </button>
+                  <button onclick="openBooking('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:none;padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                    📅 Book Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div style="text-align:center;margin-top:48px">
+          <button onclick="location.hash='#browse'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);">
+            View All Providers →
+          </button>
         </div>
       </div>
-    </section>
+      
+      <!-- Stats Section -->
+      <div style="background:var(--crimson);color:white;padding:60px 20px;text-align:center">
+        <div style="max-width:800px;margin:0 auto">
+          <h2 style="margin:0 0 32px;font-size:32px;font-weight:700">Join the Tide Together Community</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:32px">
+            <div>
+              <div style="font-size:36px;font-weight:800;margin-bottom:8px">${providers.length}+</div>
+              <div style="font-size:16px;opacity:0.9">Active Providers</div>
+            </div>
+            <div>
+              <div style="font-size:36px;font-weight:800;margin-bottom:8px">${load(STORAGE_KEYS.BOOKINGS, []).length}+</div>
+              <div style="font-size:16px;opacity:0.9">Services Booked</div>
+            </div>
+            <div>
+              <div style="font-size:36px;font-weight:800;margin-bottom:8px">${load(STORAGE_KEYS.REVIEWS, []).length}+</div>
+              <div style="font-size:16px;opacity:0.9">Reviews</div>
+            </div>
+            <div>
+              <div style="font-size:36px;font-weight:800;margin-bottom:8px">${SERVICES.length}</div>
+              <div style="font-size:16px;opacity:0.9">Service Categories</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `);
 }
 
@@ -222,19 +400,72 @@ function renderBrowse(){
   ));
 
   mount(h`
-    <section>
-      <h2 class="tt-section-title">Browse services</h2>
-      <div class="tt-filters">
-        <input id="q" placeholder="Search service, provider..." value="${q}" oninput="onSearch(this.value)" style="flex:1;min-width:220px" />
-        ${SERVICES.map(s => `<button class="tt-chip" onclick="toggleServiceFilter('${s}')">${s}</button>`).join('')}
-        <button class="tt-chip" onclick="sortBy('rating')">Sort by rating</button>
-        <button class="tt-chip" onclick="sortBy('distance')">Sort by distance</button>
-        <button class="tt-chip" onclick="sortBy('reviews')">Sort by reviews</button>
+    <div style="min-height:100vh;background:#f8f9fa;">
+      <!-- Header -->
+      <div style="background:white;padding:40px 20px;text-align:center;border-bottom:1px solid #e3e5e9;">
+        <h1 style="margin:0;font-size:36px;font-weight:700;color:var(--ink);margin-bottom:12px">Browse Services</h1>
+        <p style="margin:0;font-size:18px;color:var(--ink-600)">Find the perfect service provider for your needs</p>
       </div>
-      <div class="tt-grid" id="results">
-        ${filtered.map(cardForProvider).join('')}
+      
+      <!-- Search and Filters -->
+      <div style="max-width:1200px;margin:0 auto;padding:40px 20px;">
+        <div style="background:white;padding:32px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:32px">
+          <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+            <input id="q" placeholder="🔍 Search services, providers..." value="${q}" oninput="onSearch(this.value)" 
+                   style="flex:1;min-width:300px;padding:16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;transition:border-color 0.2s;"
+                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+          </div>
+          
+          <div style="margin-bottom:20px">
+            <h3 style="margin:0 0 12px;font-size:18px;color:var(--ink)">Filter by Service</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              ${SERVICES.map(s => `<button onclick="toggleServiceFilter('${s}')" style="background:white;border:1px solid #e3e5e9;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.color='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9';this.style.color='var(--ink)'">${s}</button>`).join('')}
+            </div>
+          </div>
+          
+          <div>
+            <h3 style="margin:0 0 12px;font-size:18px;color:var(--ink)">Sort by</h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button onclick="sortBy('rating')" style="background:white;border:1px solid #e3e5e9;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.color='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9';this.style.color='var(--ink)'">⭐ Rating</button>
+              <button onclick="sortBy('distance')" style="background:white;border:1px solid #e3e5e9;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.color='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9';this.style.color='var(--ink)'">📍 Distance</button>
+              <button onclick="sortBy('reviews')" style="background:white;border:1px solid #e3e5e9;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.color='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9';this.style.color='var(--ink)'">💬 Reviews</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Results -->
+        <div style="margin-bottom:20px">
+          <h2 style="margin:0;font-size:24px;color:var(--ink)">${filtered.length} Provider${filtered.length !== 1 ? 's' : ''} Found</h2>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px" id="results">
+          ${filtered.map(p => h`
+            <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+              <div style="height:200px;background-image:url('${p.portfolio[0] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop'}');background-size:cover;background-position:center;position:relative;">
+                <div style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:20px;font-weight:600;color:var(--ink)">
+                  ⭐ ${p.rating}
+                </div>
+              </div>
+              <div style="padding:24px">
+                <h3 style="margin:0 0 8px;font-size:20px;font-weight:700;color:var(--ink)">${p.name}</h3>
+                <p style="margin:0 0 12px;color:var(--ink-600);font-size:14px">${p.services.join(' • ')} • ${p.distanceMiles} mi away</p>
+                <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px;line-height:1.4">${p.bio.substring(0,120)}${p.bio.length > 120 ? '...' : ''}</p>
+                <div style="display:flex;gap:8px">
+                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:white;color:var(--crimson);border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+                    👁️ View Profile
+                  </button>
+                  <button onclick="openBooking('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:none;padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                    📅 Book Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        
+        ${filtered.length === 0 ? '<div style="text-align:center;padding:60px;color:var(--ink-300)"><h3>No providers found</h3><p>Try adjusting your search criteria</p></div>' : ''}
       </div>
-    </section>
+    </div>
   `);
 }
 
@@ -256,7 +487,14 @@ function cardForProvider(p){
 }
 
 function viewProfile(id){
+  console.log('Viewing profile for:', id);
   location.hash = `#profile?id=${id}`;
+  // Force navigation to ensure it works
+  setTimeout(() => {
+    if(location.hash !== `#profile?id=${id}`) {
+      location.hash = `#profile?id=${id}`;
+    }
+  }, 100);
 }
 
 function renderProfile(){
@@ -272,59 +510,146 @@ function renderProfile(){
     return;
   }
   const pReviews = reviews.filter(r => r.providerId === p.id);
+  const availabilityDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const availableDays = p.availability ? p.availability.map(day => availabilityDays[day]).join(', ') : 'Not specified';
 
   mount(h`
-    <section>
-      <button class="tt-chip" onclick="location.hash='#browse'">← Back</button>
-      <div class="tt-hero" style="margin-top:12px">
+    <div style="min-height:100vh;background:#f8f9fa;">
+      <!-- Header with back button -->
+      <div style="background:white;padding:20px;border-bottom:1px solid #e3e5e9;">
+        <button onclick="location.hash='#browse'" style="background:none;border:none;color:var(--crimson);font-size:16px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+          ← Back to Browse
+        </button>
+      </div>
+      
+      <!-- Hero Section -->
+      <div style="background:white;padding:40px 20px;text-align:center;">
+        <div style="width:120px;height:120px;background:linear-gradient(135deg,var(--crimson),#ff6b6b);border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 8px 32px rgba(153,0,0,0.2);">
+          ${p.name.charAt(0)}
+        </div>
+        <h1 style="margin:0;font-size:36px;font-weight:700;color:var(--ink);margin-bottom:8px">${p.name}</h1>
+        <div style="font-size:18px;color:var(--ink-600);margin-bottom:16px">
+          ${p.services.join(' • ')} • ${p.distanceMiles} miles away
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:24px">
+          <div style="display:flex;align-items:center;gap:4px">
+            ${'⭐'.repeat(Math.floor(p.rating))}
+          </div>
+          <span style="font-weight:600;color:var(--ink)">${p.rating}</span>
+          <span style="color:var(--ink-300)">(${p.reviewsCount} reviews)</span>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+          ${getSession() ? 
+            `<button onclick="openBooking('${p.id}')" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+              📅 Book Service
+            </button>
+            <button onclick="startDM('${p.id}')" style="background:white;color:var(--crimson);border:2px solid var(--crimson);padding:14px 30px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+              💬 Message
+            </button>` :
+            `<button onclick="location.hash='#auth'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);">
+              🔐 Sign in to Book
+            </button>`
+          }
+        </div>
+      </div>
+      
+      <!-- Content Grid -->
+      <div style="max-width:1200px;margin:0 auto;padding:40px 20px;display:grid;grid-template-columns:1fr 1fr;gap:40px;">
+        <!-- Left Column -->
         <div>
-          <h2 class="tt-section-title" style="margin:0">${p.name}</h2>
-          <div class="tt-card__meta">${p.services.join(', ')} • ${p.distanceMiles} mi • ⭐ ${p.rating} (${p.reviewsCount})</div>
-          <p>${p.bio}</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
-            ${p.licenses.map(l => `<span class='tt-badge tt-badge--green'>${l}</span>`).join('')}
-            ${p.certifications.map(c => `<span class='tt-badge tt-badge--yellow'>${c}</span>`).join('')}
+          <!-- About Section -->
+          <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 16px;font-size:24px;color:var(--ink)">About ${p.name}</h2>
+            <p style="margin:0;line-height:1.6;color:var(--ink-600);font-size:16px">${p.bio}</p>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
-            ${p.socials.instagram ? `<a class='tt-chip' href='https://instagram.com/${p.socials.instagram.replace('@','')}' target='_blank'>Instagram</a>`:''}
-            ${p.socials.linkedin ? `<a class='tt-chip' href='https://www.linkedin.com/in/${p.socials.linkedin}' target='_blank'>LinkedIn</a>`:''}
+          
+          <!-- Availability -->
+          <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 16px;font-size:24px;color:var(--ink)">📅 Availability</h2>
+            <p style="margin:0;color:var(--ink-600);font-size:16px">Available: ${availableDays}</p>
           </div>
-          <div class="tt-card__actions">
+          
+          <!-- Credentials -->
+          <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 16px;font-size:24px;color:var(--ink)">🏆 Credentials</h2>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+              ${p.licenses.map(l => `<span style="background:#e8f5e8;color:#2d5a2d;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500">📜 ${l}</span>`).join('')}
+              ${p.certifications.map(c => `<span style="background:#fff3cd;color:#856404;padding:8px 16px;border-radius:20px;font-size:14px;font-weight:500">🏆 ${c}</span>`).join('')}
+            </div>
+            ${p.licenses.length === 0 && p.certifications.length === 0 ? '<p style="margin:0;color:var(--ink-300);font-style:italic">No credentials listed</p>' : ''}
+          </div>
+          
+          <!-- Social Links -->
+          <div style="background:white;padding:32px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 16px;font-size:24px;color:var(--ink)">🔗 Connect</h2>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              ${p.socials.instagram ? `<a href='https://instagram.com/${p.socials.instagram.replace('@','')}' target='_blank' style="background:#E4405F;color:white;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:8px">📷 Instagram</a>`:''}
+              ${p.socials.linkedin ? `<a href='https://www.linkedin.com/in/${p.socials.linkedin}' target='_blank' style="background:#0077B5;color:white;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:8px">💼 LinkedIn</a>`:''}
+              ${p.socials.portfolio ? `<a href='${p.socials.portfolio.startsWith('http') ? p.socials.portfolio : 'https://' + p.socials.portfolio}' target='_blank' style="background:#6c757d;color:white;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:8px">🌐 Portfolio</a>`:''}
+              ${p.socials.tiktok ? `<a href='https://tiktok.com/@${p.socials.tiktok.replace('@','')}' target='_blank' style="background:#000000;color:white;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:8px">🎵 TikTok</a>`:''}
+              ${p.socials.github ? `<a href='https://github.com/${p.socials.github}' target='_blank' style="background:#333333;color:white;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:500;display:flex;align-items:center;gap:8px">💻 GitHub</a>`:''}
+            </div>
+            ${!p.socials.instagram && !p.socials.linkedin && !p.socials.portfolio && !p.socials.tiktok && !p.socials.github ? '<p style="margin:0;color:var(--ink-300);font-style:italic">No social media links</p>' : ''}
+          </div>
+        </div>
+        
+        <!-- Right Column -->
+        <div>
+          <!-- Portfolio Gallery -->
+          <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 20px;font-size:24px;color:var(--ink)">📸 Portfolio</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              ${(p.portfolio.length? p.portfolio : [
+                'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
+              ).slice(0,4).map(src => `<div style='height:160px;background-image:url(${src});background-size:cover;background-position:center;border-radius:12px;cursor:pointer;transition:transform 0.2s' onclick="window.open('${src}', '_blank')" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"></div>`).join('')}
+            </div>
+            ${p.portfolio.length === 0 ? '<p style="text-align:center;color:var(--ink-300);margin:20px 0">No portfolio images available</p>' : ''}
+          </div>
+          
+          <!-- Reviews Section -->
+          <div style="background:white;padding:32px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+            <h2 style="margin:0 0 20px;font-size:24px;color:var(--ink)">⭐ Reviews</h2>
+            <div style="max-height:400px;overflow-y:auto">
+              ${pReviews.length > 0 ? pReviews.map(r => h`
+                <div style="padding:16px 0;border-bottom:1px solid #f0f0f0;margin-bottom:16px">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+                    <div style="width:40px;height:40px;background:var(--crimson);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600">
+                      ${r.user.charAt(0)}
+                    </div>
+                    <div>
+                      <div style="font-weight:600;color:var(--ink)">${r.user}</div>
+                      <div style="display:flex;align-items:center;gap:4px;font-size:14px;color:var(--ink-300)">
+                        ${'⭐'.repeat(r.rating)} • ${new Date(r.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <p style="margin:0;line-height:1.5;color:var(--ink-600)">${r.text}</p>
+                </div>
+              `).join('') : '<div style="text-align:center;color:var(--ink-300);padding:40px">No reviews yet. Be the first to review!</div>'}
+            </div>
+            
             ${getSession() ? 
-              `<button class="tt-button" onclick="proposeSwap('${p.id}', '${p.services[0]}', '${getTodayISO()}')">Propose Swap</button>
-               <button class="tt-button tt-button--outline" onclick="startDM('${p.id}')">Message</button>` :
-              `<button class="tt-button" onclick="location.hash='#auth'">Sign in to Contact</button>`
+              `<div style="margin-top:20px;padding-top:20px;border-top:1px solid #f0f0f0">
+                <h3 style="margin:0 0 16px;font-size:18px;color:var(--ink)">Write a Review</h3>
+                <div style="display:flex;gap:12px;margin-bottom:12px">
+                  <select id="reviewRating" style="padding:12px;border:1px solid #e3e5e9;border-radius:8px;font-size:14px">
+                    ${[5,4,3,2,1].map(v=>`<option value="${v}">${v} stars</option>`).join('')}
+                  </select>
+                  <input id="reviewText" placeholder="Share your experience..." style="flex:1;padding:12px;border:1px solid #e3e5e9;border-radius:8px;font-size:14px" />
+                </div>
+                <button onclick="submitReview('${p.id}')" style="background:var(--crimson);color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:500;cursor:pointer">Submit Review</button>
+              </div>` :
+              `<div style="margin-top:20px;text-align:center;padding-top:20px;border-top:1px solid #f0f0f0">
+                <button onclick="location.hash='#auth'" style="background:white;color:var(--crimson);border:2px solid var(--crimson);padding:12px 24px;border-radius:8px;font-weight:500;cursor:pointer">Sign in to write a review</button>
+              </div>`
             }
           </div>
         </div>
-        <div class="tt-hero__card">
-          <div class="tt-section-title">Portfolio</div>
-          <div class="tt-grid" style="grid-template-columns:repeat(2,1fr)">
-            ${(p.portfolio.length? p.portfolio : [
-              'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
-              'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
-            ).slice(0,4).map(src => `<div class='tt-card__media' style='height:120px;background-image:url(${src})'></div>`).join('')}
-          </div>
-        </div>
       </div>
-
-      <div style="margin-top:16px" class="tt-hero__card">
-        <div class="tt-section-title">Reviews</div>
-        ${pReviews.map(r => h`<div style="padding:8px 0;border-bottom:1px solid #eee">⭐ ${r.rating} — ${r.user}<br/>${r.text}</div>`).join('') || '<div>No reviews yet.</div>'}
-        ${getSession() ? 
-          `<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <select id="reviewRating">
-              ${[5,4,3,2,1].map(v=>`<option value="${v}">${v} stars</option>`).join('')}
-            </select>
-            <input id="reviewText" placeholder="Write a review..." style="flex:1;min-width:220px" />
-            <button class="tt-button tt-button--ghost" onclick="submitReview('${p.id}')">Submit</button>
-          </div>` :
-          `<div style="margin-top:8px;text-align:center">
-            <button class="tt-button tt-button--outline" onclick="location.hash='#auth'">Sign in to write a review</button>
-          </div>`
-        }
-      </div>
-    </section>
+    </div>
   `);
 }
 
@@ -558,6 +883,12 @@ function renderAdmin(){
   const gate = gateIfNeeded('#admin');
   if(gate){ location.hash = gate; return; }
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const params = new URLSearchParams(location.search);
+  const serviceFilter = params.get('service') || '';
+  const filteredProviders = serviceFilter ? 
+    providers.filter(p => p.services.some(s => s.toLowerCase().includes(serviceFilter.toLowerCase()))) : 
+    providers;
+  
   mount(h`
     <section>
       <h2 class="tt-section-title">Admin Dashboard</h2>
@@ -568,15 +899,19 @@ function renderAdmin(){
         <div class="tt-kpi"><div class="tt-kpi__value">${load(STORAGE_KEYS.MESSAGES, []).length}</div><div>Messages</div></div>
       </div>
       <div class="tt-hero__card" style="margin-top:12px">
-        <div class="tt-section-title">Manage Services</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${SERVICES.map(s => `<span class='tt-chip'>${s}</span>`).join('')}
+        <div class="tt-section-title">Filter Services</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="tt-chip ${!serviceFilter ? 'is-active' : ''}" onclick="filterAdminServices('')">All</button>
+          ${SERVICES.map(s => `<button class="tt-chip ${serviceFilter === s ? 'is-active' : ''}" onclick="filterAdminServices('${s}')">${s}</button>`).join('')}
+        </div>
+        <div style="color:var(--ink-300);font-size:0.9rem">
+          ${serviceFilter ? `Showing ${filteredProviders.length} providers for "${serviceFilter}"` : `Showing all ${filteredProviders.length} providers`}
         </div>
       </div>
       <div class="tt-hero__card" style="margin-top:12px">
-        <div class="tt-section-title">Providers</div>
+        <div class="tt-section-title">Providers ${serviceFilter ? `(${serviceFilter})` : ''}</div>
         <div class="tt-grid">
-          ${providers.map(p => h`<article class='tt-card'><div class='tt-card__body'>
+          ${filteredProviders.map(p => h`<article class='tt-card'><div class='tt-card__body'>
             <div class='tt-card__title'>${p.name}</div>
             <div class='tt-card__meta'>${p.services.join(', ')}</div>
             ${p.cwid ? `<div class='tt-card__meta'>CWID: ${p.cwid}</div>` : ''}
@@ -593,18 +928,48 @@ function renderAdmin(){
 
 function renderStatic(text){ mount(`<section><p>${text}</p></section>`); }
 
-// New: Auth Gate (full page)
+// Enhanced Auth Gate with modern design
 function renderAuthGate(){
   mount(h`
-    <section class="tt-hero__card" style="max-width:520px;margin:40px auto;">
-      <h2 class="tt-section-title">Sign in to Tide Together</h2>
-      <p class="tt-card__meta">Use your CWID and Crimson email to continue.</p>
-      <div class="tt-field"><label for="cwid_page">CWID</label><input id="cwid_page" inputmode="numeric" placeholder="e.g., 12345678" /></div>
-      <div class="tt-field"><label for="email_page">Crimson Email</label><input id="email_page" type="email" placeholder="first.last@crimson.ua.edu" /></div>
-      <div class="tt-actions">
-        <button class="tt-button" onclick="submitAuthPage()">Continue</button>
+    <div style="min-height:100vh;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);display:flex;align-items:center;justify-content:center;padding:20px;">
+      <div style="background:white;border-radius:20px;padding:40px;max-width:480px;width:100%;box-shadow:0 20px 40px rgba(0,0,0,0.1);">
+        <div style="text-align:center;margin-bottom:32px;">
+          <div style="width:80px;height:80px;background:var(--crimson);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;">🎓</div>
+          <h1 style="margin:0;font-size:28px;font-weight:700;color:var(--ink);">Welcome to Tide Together</h1>
+          <p style="margin:8px 0 0;color:var(--ink-300);font-size:16px;">Student Swap Services at UA</p>
+        </div>
+        
+        <div style="background:#f8f9fa;padding:24px;border-radius:12px;margin-bottom:24px;">
+          <h3 style="margin:0 0 12px;color:var(--crimson);font-size:18px;">🔐 University Access Required</h3>
+          <p style="margin:0;color:var(--ink-600);font-size:14px;line-height:1.5;">Please sign in with your University of Alabama credentials to access student services and connect with fellow Crimson Tide students.</p>
+        </div>
+        
+        <form onsubmit="event.preventDefault();submitAuthPage()">
+          <div style="margin-bottom:20px;">
+            <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink);">CWID (Campus Wide ID)</label>
+            <input id="cwid_page" inputmode="numeric" placeholder="Enter your 8-digit CWID" 
+                   style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+          </div>
+          
+          <div style="margin-bottom:24px;">
+            <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink);">Crimson Email</label>
+            <input id="email_page" type="email" placeholder="your.email@crimson.ua.edu" 
+                   style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+          </div>
+          
+          <button type="submit" style="width:100%;background:var(--crimson);color:white;border:none;padding:16px;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:background 0.2s;box-shadow:0 4px 12px rgba(153,0,0,0.3);"
+                  onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+            🚀 Continue to Tide Together
+          </button>
+        </form>
+        
+        <div style="text-align:center;margin-top:24px;padding-top:20px;border-top:1px solid #e3e5e9;">
+          <p style="margin:0;color:var(--ink-300);font-size:12px;">By continuing, you agree to our Terms of Service and Privacy Policy</p>
+        </div>
       </div>
-    </section>
+    </div>
   `);
 }
 
@@ -643,31 +1008,116 @@ function submitAuthPage(){
   location.hash = '#create-profile';
 }
 
-// New: Create Profile
+// Enhanced Create Profile with comprehensive details
 function renderCreateProfile(){
   const s = getSession();
   if(!s){ location.hash = '#auth'; return; }
   mount(h`
-    <section class="tt-hero__card" style="max-width:720px;margin:24px auto;">
-      <h2 class="tt-section-title">Create your provider profile</h2>
-      <p class="tt-card__meta">Select services you offer and your weekly availability.</p>
-      <div class="tt-field">
-        <label>Services Offered</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="svcChoices">
-          ${SERVICES.map(svc => `<label class='tt-chip'><input type='checkbox' value='${svc}' style='margin-right:6px'>${svc}</label>`).join('')}
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:800px;margin:0 auto;">
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          <div style="text-align:center;margin-bottom:32px">
+            <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink)">Create Your Provider Profile</h1>
+            <p style="margin:8px 0 0;color:var(--ink-600);font-size:16px">Build a comprehensive profile to attract clients</p>
+          </div>
+          
+          <form onsubmit="event.preventDefault();submitProfileCreate()">
+            <!-- Services Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🎯 Services You Offer</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px" id="svcChoices">
+                ${SERVICES.map(svc => `
+                  <label style="background:#f8f9fa;border:2px solid #e3e5e9;padding:16px;border-radius:12px;cursor:pointer;text-align:center;transition:all 0.2s;display:flex;align-items:center;gap:8px" onmouseover="this.style.borderColor='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9'">
+                    <input type="checkbox" value="${svc}" style="margin:0;transform:scale(1.2)" onchange="this.parentElement.style.borderColor=this.checked?'var(--crimson)':'#e3e5e9';this.parentElement.style.background=this.checked?'#fff5f5':'#f8f9fa'">
+                    <span style="font-weight:500">${svc}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Availability Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📅 Weekly Availability</h3>
+              <div style="display:flex;gap:12px;flex-wrap:wrap" id="availChoices">
+                ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>`
+                  <label style="background:#f8f9fa;border:2px solid #e3e5e9;padding:12px 20px;border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px" onmouseover="this.style.borderColor='var(--crimson)'" onmouseout="this.style.borderColor='#e3e5e9'">
+                    <input type="checkbox" value="${i}" style="margin:0;transform:scale(1.2)" onchange="this.parentElement.style.borderColor=this.checked?'var(--crimson)':'#e3e5e9';this.parentElement.style.background=this.checked?'#fff5f5':'#f8f9fa'">
+                    <span style="font-weight:500">${d}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Bio Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📝 About You</h3>
+              <textarea id="bio_page" rows="4" placeholder="Tell potential clients about your experience, skills, and what makes you unique..." 
+                        style="width:100%;padding:16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;resize:vertical;transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'"></textarea>
+            </div>
+            
+            <!-- Social Media Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🔗 Social Media & Portfolio</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Instagram</label>
+                  <input id="instagram_page" placeholder="@yourusername" 
+                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                </div>
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">LinkedIn</label>
+                  <input id="linkedin_page" placeholder="your-linkedin-profile" 
+                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                </div>
+              </div>
+              <div style="margin-top:16px">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Portfolio Website (optional)</label>
+                <input id="portfolio_page" placeholder="https://yourportfolio.com" 
+                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+              </div>
+            </div>
+            
+            <!-- Work Photos Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📸 Work Photos</h3>
+              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Add URLs to photos of your work (up to 5 images)</p>
+              <div id="photoInputs">
+                <input class="photo-input" placeholder="https://example.com/your-work-photo1.jpg" 
+                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
+                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                <input class="photo-input" placeholder="https://example.com/your-work-photo2.jpg" 
+                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
+                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                <input class="photo-input" placeholder="https://example.com/your-work-photo3.jpg" 
+                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
+                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+              </div>
+            </div>
+            
+            <!-- Certifications Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🏆 Licenses & Certifications</h3>
+              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Add any licenses or certifications you have (one per line)</p>
+              <textarea id="certifications_page" rows="3" placeholder="State License&#10;CPR Certified&#10;Professional Certification" 
+                        style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;resize:vertical;transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'"></textarea>
+            </div>
+            
+            <!-- Submit Button -->
+            <div style="text-align:center">
+              <button type="submit" style="background:var(--crimson);color:white;border:none;padding:16px 48px;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;"
+                      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+                🚀 Create Profile
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-      <div class="tt-field">
-        <label>Weekly Availability</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap" id="availChoices">
-          ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>`<label class='tt-chip'><input type='checkbox' value='${i}' style='margin-right:6px'>${d}</label>`).join('')}
-        </div>
-      </div>
-      <div class="tt-field"><label for="bio_page">Short bio</label><textarea id="bio_page" rows="3" placeholder="Tell others about your experience..."></textarea></div>
-      <div class="tt-actions">
-        <button class="tt-button" onclick="submitProfileCreate()">Save Profile</button>
-      </div>
-    </section>
+    </div>
   `);
 }
 
@@ -676,17 +1126,69 @@ function submitProfileCreate(){
   const services = Array.from(document.querySelectorAll('#svcChoices input:checked')).map(i=>i.value);
   const availability = Array.from(document.querySelectorAll('#availChoices input:checked')).map(i=>Number(i.value));
   const bio = document.getElementById('bio_page').value.trim();
+  const instagram = document.getElementById('instagram_page').value.trim();
+  const linkedin = document.getElementById('linkedin_page').value.trim();
+  const portfolio = document.getElementById('portfolio_page').value.trim();
+  const certifications = document.getElementById('certifications_page').value.trim();
+  
+  // Collect work photos
+  const photoInputs = document.querySelectorAll('.photo-input');
+  const portfolioPhotos = Array.from(photoInputs)
+    .map(input => input.value.trim())
+    .filter(url => url.length > 0);
+  
   if(services.length===0){ alert('Select at least one service you offer.'); return; }
-  const profile = { services, availability, bio, licenses:[], certifications:[], portfolio:[], socials:{} };
+  if(bio.length < 20){ alert('Please write a more detailed bio (at least 20 characters).'); return; }
+  
+  // Parse certifications
+  const certList = certifications.split('\n')
+    .map(cert => cert.trim())
+    .filter(cert => cert.length > 0);
+  
+  // Build social media object
+  const socials = {};
+  if(instagram) socials.instagram = instagram.startsWith('@') ? instagram : `@${instagram}`;
+  if(linkedin) socials.linkedin = linkedin;
+  if(portfolio) socials.portfolio = portfolio;
+  
+  const profile = { 
+    services, 
+    availability, 
+    bio, 
+    licenses: certList.filter(cert => cert.toLowerCase().includes('license')),
+    certifications: certList.filter(cert => !cert.toLowerCase().includes('license')),
+    portfolio: portfolioPhotos,
+    socials 
+  };
+  
   const nextSession = { ...s, profile };
   setSession(nextSession);
-  // also add to PROVIDERS list if not present
+  
+  // Add to PROVIDERS list if not present
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   if(!providers.find(p => p.id === s.id)){
-    providers.push({ id:s.id, name:s.name, services, rating:5.0, reviewsCount:0, distanceMiles:0.5, bio, licenses:[], certifications:[], portfolio:[], socials:{}, availability, campus:'UA' });
+    providers.push({ 
+      id: s.id, 
+      name: s.name, 
+      services, 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: Math.random() * 2 + 0.5, // Random distance between 0.5-2.5 miles
+      bio, 
+      licenses: profile.licenses,
+      certifications: profile.certifications,
+      portfolio: portfolioPhotos,
+      socials,
+      availability, 
+      campus: 'UA',
+      cwid: s.cwid,
+      email: s.email
+    });
     save(STORAGE_KEYS.PROVIDERS, providers);
   }
-  location.hash = '#choose-service';
+  
+  alert('Profile created successfully! Welcome to Tide Together! 🎉');
+  location.hash = '#home';
 }
 
 // New: Choose Service then Calendar
@@ -778,13 +1280,100 @@ function toggleServiceFilter(svc){
   onSearch(next);
 }
 
-// Booking flow
+// Enhanced Booking flow
 function openBooking(providerId){
-  // Start a direct message with the provider
-  startDM(providerId);
+  const session = getSession();
+  if(!session){ 
+    alert('Please sign in to book services.'); 
+    location.hash = '#auth'; 
+    return; 
+  }
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const provider = providers.find(p => p.id === providerId);
+  if(!provider){
+    alert('Provider not found.');
+    return;
+  }
+  
+  // Show booking modal/dialog
+  const bookingDialog = document.getElementById('bookingDialog');
+  if(bookingDialog){
+    document.getElementById('bookingProvider').textContent = `Book with ${provider.name}`;
+    const serviceSelect = document.getElementById('bookingService');
+    serviceSelect.innerHTML = provider.services.map(s => `<option value="${s}">${s}</option>`).join('');
+    
+    // Set date limits
+    const dateInput = document.getElementById('bookingDate');
+    const today = new Date();
+    const maxDate = new Date();
+    maxDate.setDate(today.getDate() + 14);
+    dateInput.min = today.toISOString().split('T')[0];
+    dateInput.max = maxDate.toISOString().split('T')[0];
+    
+    bookingDialog.showModal();
+  } else {
+    // Fallback to direct message
+    startDM(providerId);
+  }
 }
 
-function submitBooking(){ /* no-op in swap model */ }
+function submitBooking(){
+  const session = getSession();
+  if(!session){ alert('Please sign in to book.'); return; }
+  
+  const service = document.getElementById('bookingService').value;
+  const date = document.getElementById('bookingDate').value;
+  const note = document.getElementById('bookingNote').value.trim();
+  
+  if(!service || !date){ alert('Please select a service and date.'); return; }
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const provider = providers.find(p => p.services.includes(service));
+  if(!provider){ alert('Provider not found.'); return; }
+  
+  // Create booking request
+  const bookings = load(STORAGE_KEYS.BOOKINGS, []);
+  const booking = {
+    id: `b_${Date.now()}`,
+    providerId: provider.id,
+    providerName: provider.name,
+    userId: session.id,
+    userName: session.name,
+    service: service,
+    date: date,
+    note: note,
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  
+  bookings.push(booking);
+  save(STORAGE_KEYS.BOOKINGS, bookings);
+  
+  // Send notification message to provider
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const threadId = `t_${[session.id, provider.id].sort().join('_')}`;
+  const messageText = `Hi ${provider.name}! I'd like to book your ${service} service for ${date}. ${note ? `Note: ${note}` : ''}`;
+  
+  messages.push({
+    id: `m_${Date.now()}`,
+    threadId: threadId,
+    from: session.id,
+    fromName: session.name,
+    to: provider.id,
+    toName: provider.name,
+    text: messageText,
+    createdAt: Date.now()
+  });
+  save(STORAGE_KEYS.MESSAGES, messages);
+  
+  // Close dialog and show success
+  document.getElementById('bookingDialog').close();
+  alert(`Booking request sent to ${provider.name}! They'll contact you soon.`);
+  
+  // Navigate to messages to see the conversation
+  location.hash = '#messages';
+}
 
 function proposeSwap(providerId, service, date){
   const session = getSession();
@@ -922,6 +1511,17 @@ function sendMessage(threadId, partnerId){
   renderMessageThread();
 }
 
+function filterAdminServices(service){
+  const url = new URL(location.href);
+  if(service){
+    url.searchParams.set('service', service);
+  } else {
+    url.searchParams.delete('service');
+  }
+  history.replaceState(null, '', url.toString());
+  renderAdmin();
+}
+
 function banProvider(id){
   if(!confirm('Remove/ban this provider?')) return;
   let providers = load(STORAGE_KEYS.PROVIDERS, []);
@@ -974,6 +1574,12 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   navigate('#home');
 });
 
+// Booking dialog event listener
+document.getElementById('bookingSubmit').addEventListener('click', (e) => {
+  e.preventDefault();
+  submitBooking();
+});
+
 // Utilities
 function groupBy(arr, keyFn){
   return arr.reduce((acc, item) => {
@@ -981,6 +1587,12 @@ function groupBy(arr, keyFn){
     (acc[k] ||= []).push(item);
     return acc;
   }, {});
+}
+
+// Utility function to clear all data (for testing)
+function clearAllData(){
+  Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+  location.reload();
 }
 
 // Init
@@ -993,6 +1605,6 @@ document.querySelectorAll('.tt-nav__link').forEach(btn => btn.addEventListener('
   location.hash = route;
 }));
 
-navigate(location.hash || '#home');
+navigate(location.hash || '#auth');
 
 
