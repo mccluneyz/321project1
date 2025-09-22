@@ -343,13 +343,18 @@ function validateSession(){
 }
 function updateAuthUI(){
   const s = getSession();
-  const status = document.getElementById('authStatus');
+  const profileIcon = document.getElementById('profileIcon');
+  const profileAvatar = document.getElementById('profileAvatar');
   const loginBtn = document.getElementById('loginBtn');
+  
   if(s){
-    status.textContent = `${s.name} (${s.cwid})`;
+    // Show profile icon with user's first initial
+    profileIcon.style.display = 'flex';
+    profileAvatar.textContent = s.name ? s.name.charAt(0).toUpperCase() : '?';
     loginBtn.textContent = 'Sign out';
   } else {
-    status.textContent = 'Guest';
+    // Hide profile icon
+    profileIcon.style.display = 'none';
     loginBtn.textContent = 'Sign in';
   }
 }
@@ -2451,5 +2456,14 @@ document.querySelectorAll('.tt-nav__link').forEach(btn => btn.addEventListener('
   const route = e.currentTarget.getAttribute('data-route');
   location.hash = route;
 }));
+
+// Profile icon click event
+document.getElementById('profileAvatar').addEventListener('click', () => {
+  const session = getSession();
+  if (session) {
+    // Navigate to the user's own profile
+    location.hash = '#profile';
+  }
+});
 
 
