@@ -348,10 +348,23 @@ function updateAuthUI(){
   const loginBtn = document.getElementById('loginBtn');
   
   if(s){
-    // Show profile icon with user's first initial
+    // Show profile icon with user's profile picture or initial
     profileIcon.style.display = 'flex';
-    profileAvatar.textContent = s.name ? s.name.charAt(0).toUpperCase() : '?';
+    
+    // Check if user has a profile picture
+    const providers = load(STORAGE_KEYS.PROVIDERS, []);
+    const userProvider = providers.find(p => p.id === s.id);
+    
+    if (userProvider?.profilePicture) {
+      profileAvatar.innerHTML = `<img src="${userProvider.profilePicture}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" />`;
+    } else {
+      profileAvatar.textContent = s.name ? s.name.charAt(0).toUpperCase() : '?';
+    }
+    
     loginBtn.textContent = 'Sign out';
+    
+    // Ensure the click event is attached when the icon becomes visible
+    setupProfileIconClick();
   } else {
     // Hide profile icon
     profileIcon.style.display = 'none';
@@ -587,11 +600,24 @@ function renderProfile(){
   const reviews = load(STORAGE_KEYS.REVIEWS, []);
   const session = getSession();
   const id = new URL(location.href).hash.split('?')[1]?.split('=')[1];
-  const p = providers.find(x => x.id === id);
-  if(!p){
-    alert(`Provider with ID "${id}" not found. Available providers: ${providers.map(p => p.name).join(', ')}`);
-    location.hash = '#browse';
-    return;
+  
+  // If no ID provided and user is logged in, show their own profile
+  let p;
+  if (!id && session) {
+    p = providers.find(x => x.id === session.id);
+    if (!p) {
+      console.log('User session exists but no provider profile found for user:', session.id);
+      alert('No profile found. Please create a profile first.');
+      location.hash = '#create-profile';
+      return;
+    }
+  } else {
+    p = providers.find(x => x.id === id);
+    if(!p){
+      alert(`Provider with ID "${id}" not found. Available providers: ${providers.map(p => p.name).join(', ')}`);
+      location.hash = '#browse';
+      return;
+    }
   }
   const isOwnProfile = session && session.id === p.id;
   const pReviews = reviews.filter(r => r.providerId === p.id);
@@ -609,8 +635,11 @@ function renderProfile(){
       
       <!-- Hero Section -->
       <div style="background:white;padding:40px 20px;text-align:center;">
-        <div style="width:120px;height:120px;background:linear-gradient(135deg,var(--crimson),#ff6b6b);border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 8px 32px rgba(153,0,0,0.2);">
-          ${p.name.charAt(0)}
+        <div style="width:120px;height:120px;background:${p.profilePicture ? 'none' : 'linear-gradient(135deg,var(--crimson),#ff6b6b)'};border-radius:50%;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;font-size:48px;color:white;box-shadow:0 8px 32px rgba(153,0,0,0.2);overflow:hidden;background-size:cover;background-position:center;">
+          ${p.profilePicture ? 
+            `<img src="${p.profilePicture}" style="width:100%;height:100%;object-fit:cover" />` :
+            p.name.charAt(0)
+          }
         </div>
         <h1 style="margin:0;font-size:36px;font-weight:700;color:var(--ink);margin-bottom:8px">${p.name}</h1>
         <div style="font-size:18px;color:var(--ink-600);margin-bottom:16px">
@@ -1291,6 +1320,25 @@ function renderCreateProfile(){
               </div>
             </div>
             
+            <!-- Profile Picture Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📸 Profile Picture</h3>
+              <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+                <div style="position:relative">
+                  <div id="createProfilePic" style="width:80px;height:80px;border-radius:50%;background:var(--crimson);display:flex;align-items:center;justify-content:center;color:white;font-size:32px;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:3px solid #e3e5e9">
+                    ?
+                  </div>
+                </div>
+                <div style="flex:1;min-width:200px">
+                  <label for="createProfilePictureUpload" style="display:inline-block;background:var(--crimson);color:white;padding:12px 24px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-bottom:8px;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                    📁 Choose Photo
+                  </label>
+                  <input type="file" id="createProfilePictureUpload" accept="image/*" style="display:none" onchange="previewCreateProfilePicture(this)" />
+                  <p style="margin:0;font-size:14px;color:var(--ink-600)">Upload a clear photo of yourself (JPG, PNG, or GIF) - Optional</p>
+                </div>
+              </div>
+            </div>
+            
             <!-- Services Section -->
             <div style="margin-bottom:32px">
               <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🎯 Services You Offer</h3>
@@ -1434,7 +1482,8 @@ function submitProfileCreate(){
     licenses: certList.filter(cert => cert.toLowerCase().includes('license')),
     certifications: certList.filter(cert => !cert.toLowerCase().includes('license')),
     portfolio: portfolioPhotos,
-    socials 
+    socials,
+    profilePicture: uploadedProfilePicture
   };
   
   const nextSession = { ...s, name: fullName, profile };
@@ -1456,6 +1505,7 @@ function submitProfileCreate(){
     existingProvider.portfolio = portfolioPhotos;
     existingProvider.socials = socials;
     existingProvider.availability = availability;
+    existingProvider.profilePicture = uploadedProfilePicture;
   } else {
     // Add new provider
     providers.push({ 
@@ -1472,7 +1522,8 @@ function submitProfileCreate(){
       certifications: profile.certifications,
       portfolio: portfolioPhotos,
       socials,
-      availability, 
+      availability,
+      profilePicture: uploadedProfilePicture,
       campus: 'UA',
       cwid: s.cwid,
       email: s.email
@@ -1528,6 +1579,28 @@ function renderEditProfile(){
                   <input id="editLastName" placeholder="Enter your last name" value="${currentProvider.lastName || ''}" 
                          style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
                          onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+                </div>
+              </div>
+            </div>
+            
+            <!-- Profile Picture Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📸 Profile Picture</h3>
+              <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+                <div style="position:relative">
+                  <div id="currentProfilePic" style="width:80px;height:80px;border-radius:50%;background:var(--crimson);display:flex;align-items:center;justify-content:center;color:white;font-size:32px;font-weight:600;overflow:hidden;background-size:cover;background-position:center;border:3px solid #e3e5e9">
+                    ${currentProvider.profilePicture ? 
+                      `<img src="${currentProvider.profilePicture}" style="width:100%;height:100%;object-fit:cover" />` :
+                      (currentProvider.name ? currentProvider.name.charAt(0).toUpperCase() : '?')
+                    }
+                  </div>
+                </div>
+                <div style="flex:1;min-width:200px">
+                  <label for="profilePictureUpload" style="display:inline-block;background:var(--crimson);color:white;padding:12px 24px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-bottom:8px;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                    📁 Choose Photo
+                  </label>
+                  <input type="file" id="profilePictureUpload" accept="image/*" style="display:none" onchange="previewProfilePicture(this)" />
+                  <p style="margin:0;font-size:14px;color:var(--ink-600)">Upload a clear photo of yourself (JPG, PNG, or GIF)</p>
                 </div>
               </div>
             </div>
@@ -1674,11 +1747,14 @@ function submitProfileEdit(){
     socials 
   };
   
-  const nextSession = { ...s, name: fullName, profile };
-  setSession(nextSession);
-  
   // Update provider in PROVIDERS list
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  
+  // Add profile picture to the profile object
+  profile.profilePicture = uploadedProfilePicture || (providers.find(p => p.id === s.id)?.profilePicture);
+  
+  const nextSession = { ...s, name: fullName, profile };
+  setSession(nextSession);
   const existingProvider = providers.find(p => p.id === s.id);
   
   if(existingProvider){
@@ -1692,6 +1768,7 @@ function submitProfileEdit(){
     existingProvider.portfolio = portfolioPhotos;
     existingProvider.socials = socials;
     existingProvider.availability = availability;
+    existingProvider.profilePicture = profile.profilePicture;
     save(STORAGE_KEYS.PROVIDERS, providers);
   }
   
@@ -2457,13 +2534,83 @@ document.querySelectorAll('.tt-nav__link').forEach(btn => btn.addEventListener('
   location.hash = route;
 }));
 
-// Profile icon click event
-document.getElementById('profileAvatar').addEventListener('click', () => {
-  const session = getSession();
-  if (session) {
-    // Navigate to the user's own profile
-    location.hash = '#profile';
+// Profile icon click event - attach after DOM is ready
+function setupProfileIconClick() {
+  const profileAvatar = document.getElementById('profileAvatar');
+  if (profileAvatar) {
+    profileAvatar.addEventListener('click', () => {
+      const session = getSession();
+      if (session) {
+        console.log('Profile icon clicked, navigating to user profile:', session.id);
+        // Navigate to the user's own profile with their ID
+        location.hash = `#profile?id=${session.id}`;
+      }
+    });
   }
-});
+}
+
+// Initialize profile icon click handler when page loads
+setupProfileIconClick();
+
+// Profile picture upload functions
+function previewProfilePicture(input) {
+  const file = input.files[0];
+  if (file) {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      input.value = '';
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file');
+      input.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const currentProfilePic = document.getElementById('currentProfilePic');
+      currentProfilePic.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover" />`;
+      // Store the image data for saving
+      uploadedProfilePicture = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// Global variable to store the uploaded profile picture data
+let uploadedProfilePicture = null;
+
+// Preview function for create profile form
+function previewCreateProfilePicture(input) {
+  const file = input.files[0];
+  if (file) {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      input.value = '';
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file');
+      input.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const createProfilePic = document.getElementById('createProfilePic');
+      createProfilePic.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover" />`;
+      // Store the image data for saving
+      uploadedProfilePicture = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
 
 
