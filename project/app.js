@@ -7,7 +7,8 @@ const STORAGE_KEYS = {
   BOOKINGS: 'tt_bookings',
   REVIEWS: 'tt_reviews',
   MESSAGES: 'tt_messages',
-  SESSION: 'tt_session'
+  SESSION: 'tt_session',
+  SUPPORT_REQUESTS: 'tt_support_requests'
 };
 
 const SERVICES = [
@@ -187,6 +188,38 @@ function seed(){
   if(!load(STORAGE_KEYS.MESSAGES)){
     save(STORAGE_KEYS.MESSAGES, []);
   }
+  if(!load(STORAGE_KEYS.SUPPORT_REQUESTS)){
+    // Add sample support requests for testing
+    const sampleRequests = [
+      {
+        id: 'sr_sample1',
+        email: 'student1@crimson.ua.edu',
+        message: 'I need help with a provider who didn\'t show up for our appointment. Can you help me get a refund?',
+        status: 'pending',
+        createdAt: Date.now() - 86400000 * 2 // 2 days ago
+      },
+      {
+        id: 'sr_sample2',
+        email: 'student2@crimson.ua.edu',
+        message: 'I want to report inappropriate behavior from a user. They sent me inappropriate messages.',
+        status: 'responded',
+        adminResponse: 'Thank you for reporting this. We have reviewed the case and taken appropriate action. The user has been warned and their account is being monitored.',
+        responseDate: Date.now() - 86400000 * 1, // 1 day ago
+        createdAt: Date.now() - 86400000 * 3 // 3 days ago
+      },
+      {
+        id: 'sr_sample3',
+        email: 'student3@crimson.ua.edu',
+        message: 'How do I update my profile information? I can\'t find the edit button.',
+        status: 'resolved',
+        adminResponse: 'You can now edit your profile by going to your profile page and clicking the "Edit Profile" button. We\'ve added this feature based on your feedback!',
+        responseDate: Date.now() - 86400000 * 4, // 4 days ago
+        resolvedDate: Date.now() - 86400000 * 1, // 1 day ago
+        createdAt: Date.now() - 86400000 * 5 // 5 days ago
+      }
+    ];
+    save(STORAGE_KEYS.SUPPORT_REQUESTS, sampleRequests);
+  }
 }
 
 // Simple router
@@ -194,6 +227,7 @@ const routes = {
   '#home': renderHome,
   '#browse': renderBrowse,
   '#profile': renderProfile,
+  '#edit-profile': renderEditProfile,
   '#messages': renderMessages,
   '#message': renderMessageThread,
   '#support': renderSupport,
@@ -207,19 +241,33 @@ const routes = {
 };
 
 function navigate(hash){
+  console.log('navigate called with hash:', hash);
   const required = gateIfNeeded(hash);
+  console.log('gateIfNeeded returned:', required);
+  
   const navLinks = document.querySelectorAll('.tt-nav__link');
   navLinks.forEach(l => l.classList.toggle('is-active', l.dataset.route === (required || hash)));
-  const route = routes[required || hash] || routes['#home'];
+  
+  // Use the required route if there's a redirect, otherwise use the original hash
+  const targetRoute = required || hash;
+  const baseRoute = targetRoute.split('?')[0];
+  console.log('Final route being rendered:', baseRoute);
+  
+  const route = routes[baseRoute] || routes['#home'];
+  console.log('Route function found:', !!route);
   route();
 }
 
 function gateIfNeeded(targetHash){
   const s = getSession();
   
+  console.log('gateIfNeeded called with:', targetHash);
+  console.log('Current session:', s);
+  
   // Require authentication for ALL pages except auth itself
   if(targetHash !== '#auth'){
     if(!s) {
+      console.log('No session, redirecting to auth');
       return '#auth';
     }
     
@@ -253,7 +301,19 @@ function gateIfNeeded(targetHash){
     }
     
     // Require profile setup for other routes (non-admins)
+    console.log('Checking profile requirements:');
+    console.log('- targetHash:', targetHash);
+    console.log('- s.profile:', s.profile);
+    console.log('- s.profile.services:', s.profile?.services);
+    console.log('- services length:', s.profile?.services?.length);
+    
     if(targetHash !== '#create-profile' && (!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0)){
+      console.log('Profile incomplete, redirecting to create-profile');
+      console.log('Profile check details:');
+      console.log('- s.profile exists:', !!s.profile);
+      console.log('- s.profile.services exists:', !!s.profile?.services);
+      console.log('- s.profile.services is array:', Array.isArray(s.profile?.services));
+      console.log('- s.profile.services length:', s.profile?.services?.length);
       return '#create-profile';
     }
   }
@@ -264,6 +324,23 @@ function gateIfNeeded(targetHash){
 // Auth
 function getSession(){ return load(STORAGE_KEYS.SESSION, null); }
 function setSession(session){ save(STORAGE_KEYS.SESSION, session); updateAuthUI(); }
+
+function validateSession(){
+  const session = getSession();
+  if(!session) return false;
+  
+  // Check if the user still exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = providers.find(p => p.id === session.id);
+  
+  if(!userProvider) {
+    console.log('Session user not found in providers, clearing session');
+    setSession(null);
+    return false;
+  }
+  
+  return true;
+}
 function updateAuthUI(){
   const s = getSession();
   const status = document.getElementById('authStatus');
@@ -413,7 +490,8 @@ function renderBrowse(){
           <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
             <input id="q" placeholder="🔍 Search services, providers..." value="${q}" oninput="onSearch(this.value)" 
                    style="flex:1;min-width:300px;padding:16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;transition:border-color 0.2s;"
-                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'"
+                   onkeydown="if(event.key==='Backspace' && this.selectionStart === 0 && this.selectionEnd === this.value.length) { this.value=''; onSearch(''); event.preventDefault(); }" />
           </div>
           
           <div style="margin-bottom:20px">
@@ -502,6 +580,7 @@ function renderProfile(){
   if(gate){ location.hash = gate; return; }
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const reviews = load(STORAGE_KEYS.REVIEWS, []);
+  const session = getSession();
   const id = new URL(location.href).hash.split('?')[1]?.split('=')[1];
   const p = providers.find(x => x.id === id);
   if(!p){
@@ -509,6 +588,7 @@ function renderProfile(){
     location.hash = '#browse';
     return;
   }
+  const isOwnProfile = session && session.id === p.id;
   const pReviews = reviews.filter(r => r.providerId === p.id);
   const availabilityDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const availableDays = p.availability ? p.availability.map(day => availabilityDays[day]).join(', ') : 'Not specified';
@@ -541,16 +621,20 @@ function renderProfile(){
         
         <!-- Action Buttons -->
         <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
-          ${getSession() ? 
-            `<button onclick="openBooking('${p.id}')" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
-              📅 Book Service
-            </button>
-            <button onclick="startDM('${p.id}')" style="background:white;color:var(--crimson);border:2px solid var(--crimson);padding:14px 30px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
-              💬 Message
+          ${isOwnProfile ? 
+            `<button onclick="location.hash='#edit-profile'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+              ✏️ Edit Profile
             </button>` :
-            `<button onclick="location.hash='#auth'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);">
-              🔐 Sign in to Book
-            </button>`
+            getSession() ? 
+              `<button onclick="openBooking('${p.id}')" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+                📅 Book Service
+              </button>
+              <button onclick="startDM('${p.id}')" style="background:white;color:var(--crimson);border:2px solid var(--crimson);padding:14px 30px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+                💬 Message
+              </button>` :
+              `<button onclick="location.hash='#auth'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);">
+                🔐 Sign in to Book
+              </button>`
           }
         </div>
       </div>
@@ -661,11 +745,11 @@ function renderMessages(){
   const messages = load(STORAGE_KEYS.MESSAGES, []);
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   
-  // Filter messages to only show conversations with providers
+  // Filter messages to show conversations with providers and support bot
   const providerIds = providers.map(p => p.id);
   const providerMessages = messages.filter(m => 
     (m.to === session?.id || m.from === session?.id) && 
-    (providerIds.includes(m.to) || providerIds.includes(m.from))
+    (providerIds.includes(m.to) || providerIds.includes(m.from) || m.from === 'support_bot' || m.to === 'support_bot')
   );
   
   const threads = groupBy(providerMessages, m => m.threadId);
@@ -673,7 +757,7 @@ function renderMessages(){
     const last = thread[thread.length-1];
     const partner = last.from === session?.id ? last.toName : last.fromName;
     const partnerId = last.from === session?.id ? last.to : last.from;
-    const partnerProvider = providers.find(p => p.id === partnerId);
+    const partnerProvider = partnerId === 'support_bot' ? { id: 'support_bot', name: 'Tide Together Support', services: ['Support'] } : providers.find(p => p.id === partnerId);
     const preview = last.text.length > 50 ? last.text.substring(0, 50) + '...' : last.text;
     const timeAgo = getTimeAgo(last.createdAt);
     const isUnread = last.from !== session?.id; // Simple unread logic
@@ -866,16 +950,146 @@ function getTimeAgo(timestamp) {
 }
 
 function renderSupport(){
+  const session = getSession();
+  const adminEmails = [
+    'faarnaoperez@crimson.ua.edu',
+    'dhnguyen3@crimson.ua.edu', 
+    'zkmccluney@crimson.ua.edu',
+    'jdmiller16@crimson.ua.edu'
+  ];
+  const isAdmin = session && adminEmails.includes(session.email);
+  
+  console.log('=== SUPPORT SYSTEM DEBUG ===');
+  console.log('Support page - Session:', session);
+  console.log('Support page - Session email:', session?.email);
+  console.log('Support page - Is Admin:', isAdmin);
+  console.log('Support page - Admin emails:', adminEmails);
+  console.log('Support page - Email match:', session?.email ? adminEmails.includes(session.email) : 'No session email');
+  
+  if(isAdmin) {
+    console.log('Rendering admin support page');
+    renderAdminSupport();
+  } else {
+    console.log('Rendering user support page');
+    renderUserSupport();
+  }
+  console.log('=== END SUPPORT DEBUG ===');
+}
+
+function renderUserSupport(){
   mount(h`
-    <section>
-      <h2 class="tt-section-title">Contact Support</h2>
-      <div class="tt-hero__card">
-        <p>Need help or want to report a user? Send us a message.</p>
-        <div class="tt-field"><label for="supEmail">Your Email</label><input id="supEmail" placeholder="you@crimson.ua.edu"></div>
-        <div class="tt-field"><label for="supMsg">Message</label><textarea id="supMsg" rows="4" placeholder="Describe the issue..."></textarea></div>
-        <button class="tt-button" onclick="alert('Support request submitted!')">Submit</button>
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:800px;margin:0 auto;">
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          <div style="text-align:center;margin-bottom:32px">
+            <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink)">Contact Support</h1>
+            <p style="margin:8px 0 0;color:var(--ink-600);font-size:16px">Need help or want to report a user? Send us a message.</p>
       </div>
-    </section>
+          
+          <form onsubmit="event.preventDefault();submitSupportRequest()">
+            <div style="margin-bottom:24px">
+              <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Your Email</label>
+              <input id="supEmail" type="email" placeholder="you@crimson.ua.edu" 
+                     style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                     onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+            </div>
+            
+            <div style="margin-bottom:32px">
+              <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Message</label>
+              <textarea id="supMsg" rows="6" placeholder="Describe the issue or concern..." 
+                        style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;resize:vertical;transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required></textarea>
+            </div>
+            
+            <div style="text-align:center">
+              <button type="submit" style="background:var(--crimson);color:white;border:none;padding:16px 48px;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;"
+                      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+                📧 Submit Support Request
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function renderAdminSupport(){
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const sortedRequests = supportRequests.sort((a, b) => b.createdAt - a.createdAt);
+  
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:1200px;margin:0 auto;">
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:8px">Support Requests</h1>
+              <p style="margin:0;color:var(--ink-600);font-size:16px">Manage user support requests and respond to inquiries</p>
+            </div>
+            <button onclick="resetSupportRequests()" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+              🔄 Reset Sample Data
+            </button>
+          </div>
+        </div>
+        
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          ${sortedRequests.length > 0 ? sortedRequests.map(req => h`
+            <div style="border:1px solid #e3e5e9;border-radius:12px;padding:24px;margin-bottom:20px;background:#fafafa">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px">
+                <div>
+                  <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">Support Request #${req.id}</h3>
+                  <div style="display:flex;gap:16px;margin-bottom:8px">
+                    <span style="color:var(--ink-600);font-size:14px"><strong>From:</strong> ${req.email}</span>
+                    <span style="color:var(--ink-600);font-size:14px"><strong>Date:</strong> ${new Date(req.createdAt).toLocaleString()}</span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <span style="background:${req.status === 'pending' ? '#fff3cd' : req.status === 'resolved' ? '#d4edda' : '#f8d7da'};color:${req.status === 'pending' ? '#856404' : req.status === 'resolved' ? '#155724' : '#721c24'};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500">
+                    ${req.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              
+              <div style="background:white;padding:16px;border-radius:8px;margin-bottom:16px">
+                <h4 style="margin:0 0 8px;font-size:16px;color:var(--ink)">Message:</h4>
+                <p style="margin:0;line-height:1.6;color:var(--ink-600)">${req.message}</p>
+              </div>
+              
+              ${req.adminResponse ? h`
+                <div style="background:#e3f2fd;padding:16px;border-radius:8px;margin-bottom:16px">
+                  <h4 style="margin:0 0 8px;font-size:16px;color:var(--ink)">Admin Response:</h4>
+                  <p style="margin:0;line-height:1.6;color:var(--ink-600)">${req.adminResponse}</p>
+                  <div style="margin-top:8px;font-size:12px;color:var(--ink-300)">
+                    Responded on ${new Date(req.responseDate).toLocaleString()}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <div style="display:flex;gap:12px">
+                ${req.status === 'pending' ? h`
+                  <button onclick="respondToSupport('${req.id}')" style="background:var(--crimson);color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                    💬 Respond
+                  </button>
+                  <button onclick="markSupportResolved('${req.id}')" style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
+                    ✅ Mark Resolved
+                  </button>
+                ` : ''}
+                <button onclick="deleteSupportRequest('${req.id}')" style="background:#dc3545;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
+                  🗑️ Delete
+                </button>
+              </div>
+            </div>
+          `).join('') : h`
+            <div style="text-align:center;padding:60px;color:var(--ink-300)">
+              <div style="font-size:48px;margin-bottom:16px">📭</div>
+              <h3 style="margin:0 0 8px;color:var(--ink)">No support requests</h3>
+              <p style="margin:0">All caught up! No pending support requests.</p>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
   `);
 }
 
@@ -974,38 +1188,69 @@ function renderAuthGate(){
 }
 
 function submitAuthPage(){
+  console.log('submitAuthPage called');
   const cwid = document.getElementById('cwid_page').value.trim();
   const email = document.getElementById('email_page').value.trim();
+  console.log('CWID:', cwid, 'Email:', email);
+  
   if(!/^\d{8}$/.test(cwid)){ alert('Enter a valid CWID.'); return; }
   if(!/@crimson\.ua\.edu$/i.test(email)){ alert('Use your Crimson email.'); return; }
   const name = email.split('@')[0].replace('.', ' ');
   const userId = `u_${cwid}`;
+  console.log('User ID:', userId, 'Name:', name);
   
-  // Create basic provider profile immediately
+  // Check if user already has a complete profile
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
-  if(!providers.find(p => p.id === userId)){
-    providers.push({ 
-      id: userId, 
-      name: name, 
-      services: ['New User'], 
-      rating: 5.0, 
-      reviewsCount: 0, 
-      distanceMiles: 0.5, 
-      bio: 'New user - profile setup pending', 
-      licenses: [], 
-      certifications: [], 
-      portfolio: [], 
-      socials: {}, 
-      availability: [], 
-      campus: 'UA',
-      cwid: cwid,
-      email: email
-    });
-    save(STORAGE_KEYS.PROVIDERS, providers);
-  }
+  const existingProvider = providers.find(p => p.id === userId);
   
-  setSession({ id: userId, cwid, email, name, profile:null });
-  location.hash = '#create-profile';
+  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
+    // User has a complete profile - load it into session
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    console.log('Loading existing profile for user:', userId);
+    console.log('Profile data:', profile);
+    
+    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
+    console.log('Navigating to #home');
+    setTimeout(() => navigate('#home'), 10);
+  } else {
+    // User needs to create/complete profile
+    if(!existingProvider){
+      providers.push({ 
+        id: userId, 
+        name: name, 
+        services: ['New User'], 
+        rating: 5.0, 
+        reviewsCount: 0, 
+        distanceMiles: 0.5, 
+        bio: 'New user - profile setup pending', 
+        licenses: [], 
+        certifications: [], 
+        portfolio: [], 
+        socials: {}, 
+        availability: [], 
+        campus: 'UA',
+        cwid: cwid,
+        email: email
+      });
+      save(STORAGE_KEYS.PROVIDERS, providers);
+    }
+    
+    setSession({ id: userId, cwid, email, name, profile: null });
+    console.log('Navigating to #create-profile');
+    setTimeout(() => navigate('#create-profile'), 10);
+  }
 }
 
 // Enhanced Create Profile with comprehensive details
@@ -1022,6 +1267,25 @@ function renderCreateProfile(){
           </div>
           
           <form onsubmit="event.preventDefault();submitProfileCreate()">
+            <!-- Personal Information Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">👤 Personal Information</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">First Name</label>
+                  <input id="firstName_page" placeholder="Enter your first name" 
+                         style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+                </div>
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Last Name</label>
+                  <input id="lastName_page" placeholder="Enter your last name" 
+                         style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+                </div>
+              </div>
+            </div>
+            
             <!-- Services Section -->
             <div style="margin-bottom:32px">
               <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🎯 Services You Offer</h3>
@@ -1123,6 +1387,8 @@ function renderCreateProfile(){
 
 function submitProfileCreate(){
   const s = getSession();
+  const firstName = document.getElementById('firstName_page').value.trim();
+  const lastName = document.getElementById('lastName_page').value.trim();
   const services = Array.from(document.querySelectorAll('#svcChoices input:checked')).map(i=>i.value);
   const availability = Array.from(document.querySelectorAll('#availChoices input:checked')).map(i=>Number(i.value));
   const bio = document.getElementById('bio_page').value.trim();
@@ -1137,6 +1403,7 @@ function submitProfileCreate(){
     .map(input => input.value.trim())
     .filter(url => url.length > 0);
   
+  if(!firstName || !lastName){ alert('Please enter both first and last name.'); return; }
   if(services.length===0){ alert('Select at least one service you offer.'); return; }
   if(bio.length < 20){ alert('Please write a more detailed bio (at least 20 characters).'); return; }
   
@@ -1151,7 +1418,11 @@ function submitProfileCreate(){
   if(linkedin) socials.linkedin = linkedin;
   if(portfolio) socials.portfolio = portfolio;
   
+  const fullName = `${firstName} ${lastName}`;
   const profile = { 
+    firstName,
+    lastName,
+    fullName,
     services, 
     availability, 
     bio, 
@@ -1161,15 +1432,32 @@ function submitProfileCreate(){
     socials 
   };
   
-  const nextSession = { ...s, profile };
+  const nextSession = { ...s, name: fullName, profile };
   setSession(nextSession);
   
-  // Add to PROVIDERS list if not present
+  // Update or add to PROVIDERS list
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
-  if(!providers.find(p => p.id === s.id)){
+  const existingProvider = providers.find(p => p.id === s.id);
+  
+  if(existingProvider){
+    // Update existing provider
+    existingProvider.name = fullName;
+    existingProvider.firstName = firstName;
+    existingProvider.lastName = lastName;
+    existingProvider.services = services;
+    existingProvider.bio = bio;
+    existingProvider.licenses = profile.licenses;
+    existingProvider.certifications = profile.certifications;
+    existingProvider.portfolio = portfolioPhotos;
+    existingProvider.socials = socials;
+    existingProvider.availability = availability;
+  } else {
+    // Add new provider
     providers.push({ 
       id: s.id, 
-      name: s.name, 
+      name: fullName,
+      firstName,
+      lastName,
       services, 
       rating: 5.0, 
       reviewsCount: 0, 
@@ -1184,11 +1472,226 @@ function submitProfileCreate(){
       cwid: s.cwid,
       email: s.email
     });
-    save(STORAGE_KEYS.PROVIDERS, providers);
   }
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  console.log('Profile created successfully for user:', s.id);
+  console.log('Updated provider data:', existingProvider || 'New provider created');
+  console.log('Services saved:', services);
+  console.log('Provider services after save:', existingProvider?.services || 'New provider');
   
   alert('Profile created successfully! Welcome to Tide Together! 🎉');
   location.hash = '#home';
+}
+
+function renderEditProfile(){
+  const gate = gateIfNeeded('#edit-profile');
+  if(gate){ location.hash = gate; return; }
+  const s = getSession();
+  if(!s){ location.hash = '#auth'; return; }
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const currentProvider = providers.find(p => p.id === s.id);
+  if(!currentProvider){
+    alert('Profile not found. Please create a profile first.');
+    location.hash = '#create-profile';
+    return;
+  }
+  
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:800px;margin:0 auto;">
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          <div style="text-align:center;margin-bottom:32px">
+            <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink)">Edit Your Profile</h1>
+            <p style="margin:8px 0 0;color:var(--ink-600);font-size:16px">Update your information and services</p>
+          </div>
+          
+          <form onsubmit="event.preventDefault();submitProfileEdit()">
+            <!-- Personal Information Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">👤 Personal Information</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">First Name</label>
+                  <input id="editFirstName" placeholder="Enter your first name" value="${currentProvider.firstName || ''}" 
+                         style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+                </div>
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Last Name</label>
+                  <input id="editLastName" placeholder="Enter your last name" value="${currentProvider.lastName || ''}" 
+                         style="width:100%;padding:14px;border:2px solid #e3e5e9;border-radius:10px;font-size:16px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" required />
+                </div>
+              </div>
+            </div>
+            
+            <!-- Services Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🎯 Services You Offer</h3>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px" id="editSvcChoices">
+                ${SERVICES.map(svc => `
+                  <label style="background:${currentProvider.services.includes(svc) ? '#fff5f5' : '#f8f9fa'};border:2px solid ${currentProvider.services.includes(svc) ? 'var(--crimson)' : '#e3e5e9'};padding:16px;border-radius:12px;cursor:pointer;text-align:center;transition:all 0.2s;display:flex;align-items:center;gap:8px" onmouseover="this.style.borderColor='var(--crimson)'" onmouseout="this.style.borderColor='${currentProvider.services.includes(svc) ? 'var(--crimson)' : '#e3e5e9'}'">
+                    <input type="checkbox" value="${svc}" ${currentProvider.services.includes(svc) ? 'checked' : ''} style="margin:0;transform:scale(1.2)" onchange="this.parentElement.style.borderColor=this.checked?'var(--crimson)':'#e3e5e9';this.parentElement.style.background=this.checked?'#fff5f5':'#f8f9fa'">
+                    <span style="font-weight:500">${svc}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Availability Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📅 Weekly Availability</h3>
+              <div style="display:flex;gap:12px;flex-wrap:wrap" id="editAvailChoices">
+                ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>`
+                  <label style="background:${currentProvider.availability.includes(i) ? '#fff5f5' : '#f8f9fa'};border:2px solid ${currentProvider.availability.includes(i) ? 'var(--crimson)' : '#e3e5e9'};padding:12px 20px;border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:8px" onmouseover="this.style.borderColor='var(--crimson)'" onmouseout="this.style.borderColor='${currentProvider.availability.includes(i) ? 'var(--crimson)' : '#e3e5e9'}'">
+                    <input type="checkbox" value="${i}" ${currentProvider.availability.includes(i) ? 'checked' : ''} style="margin:0;transform:scale(1.2)" onchange="this.parentElement.style.borderColor=this.checked?'var(--crimson)':'#e3e5e9';this.parentElement.style.background=this.checked?'#fff5f5':'#f8f9fa'">
+                    <span style="font-weight:500">${d}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Bio Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📝 About You</h3>
+              <textarea id="editBio" rows="4" placeholder="Tell potential clients about your experience, skills, and what makes you unique..." 
+                        style="width:100%;padding:16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;resize:vertical;transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'">${currentProvider.bio || ''}</textarea>
+            </div>
+            
+            <!-- Social Media Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🔗 Social Media & Portfolio</h3>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Instagram</label>
+                  <input id="editInstagram" placeholder="@yourusername" value="${currentProvider.socials?.instagram || ''}" 
+                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                </div>
+                <div>
+                  <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">LinkedIn</label>
+                  <input id="editLinkedin" placeholder="your-linkedin-profile" value="${currentProvider.socials?.linkedin || ''}" 
+                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                </div>
+              </div>
+              <div style="margin-top:16px">
+                <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">Portfolio Website (optional)</label>
+                <input id="editPortfolio" placeholder="https://yourportfolio.com" value="${currentProvider.socials?.portfolio || ''}" 
+                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
+                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+              </div>
+            </div>
+            
+            <!-- Work Photos Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📸 Work Photos</h3>
+              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Add URLs to photos of your work (up to 5 images)</p>
+              <div id="editPhotoInputs">
+                ${(currentProvider.portfolio || []).concat(['','','']).slice(0,5).map((url, i) => `
+                  <input class="edit-photo-input" placeholder="https://example.com/your-work-photo${i+1}.jpg" value="${url || ''}" 
+                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
+                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                `).join('')}
+              </div>
+            </div>
+            
+            <!-- Certifications Section -->
+            <div style="margin-bottom:32px">
+              <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">🏆 Licenses & Certifications</h3>
+              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Add any licenses or certifications you have (one per line)</p>
+              <textarea id="editCertifications" rows="3" placeholder="State License&#10;CPR Certified&#10;Professional Certification" 
+                        style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;resize:vertical;transition:border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'">${(currentProvider.licenses || []).concat(currentProvider.certifications || []).join('\n')}</textarea>
+            </div>
+            
+            <!-- Submit Button -->
+            <div style="text-align:center">
+              <button type="submit" style="background:var(--crimson);color:white;border:none;padding:16px 48px;border-radius:12px;font-size:18px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;"
+                      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+                💾 Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function submitProfileEdit(){
+  const s = getSession();
+  const firstName = document.getElementById('editFirstName').value.trim();
+  const lastName = document.getElementById('editLastName').value.trim();
+  const services = Array.from(document.querySelectorAll('#editSvcChoices input:checked')).map(i=>i.value);
+  const availability = Array.from(document.querySelectorAll('#editAvailChoices input:checked')).map(i=>Number(i.value));
+  const bio = document.getElementById('editBio').value.trim();
+  const instagram = document.getElementById('editInstagram').value.trim();
+  const linkedin = document.getElementById('editLinkedin').value.trim();
+  const portfolio = document.getElementById('editPortfolio').value.trim();
+  const certifications = document.getElementById('editCertifications').value.trim();
+  
+  // Collect work photos
+  const photoInputs = document.querySelectorAll('.edit-photo-input');
+  const portfolioPhotos = Array.from(photoInputs)
+    .map(input => input.value.trim())
+    .filter(url => url.length > 0);
+  
+  if(!firstName || !lastName){ alert('Please enter both first and last name.'); return; }
+  if(services.length===0){ alert('Select at least one service you offer.'); return; }
+  if(bio.length < 20){ alert('Please write a more detailed bio (at least 20 characters).'); return; }
+  
+  // Parse certifications
+  const certList = certifications.split('\n')
+    .map(cert => cert.trim())
+    .filter(cert => cert.length > 0);
+  
+  // Build social media object
+  const socials = {};
+  if(instagram) socials.instagram = instagram.startsWith('@') ? instagram : `@${instagram}`;
+  if(linkedin) socials.linkedin = linkedin;
+  if(portfolio) socials.portfolio = portfolio;
+  
+  const fullName = `${firstName} ${lastName}`;
+  const profile = { 
+    firstName,
+    lastName,
+    fullName,
+    services, 
+    availability, 
+    bio, 
+    licenses: certList.filter(cert => cert.toLowerCase().includes('license')),
+    certifications: certList.filter(cert => !cert.toLowerCase().includes('license')),
+    portfolio: portfolioPhotos,
+    socials 
+  };
+  
+  const nextSession = { ...s, name: fullName, profile };
+  setSession(nextSession);
+  
+  // Update provider in PROVIDERS list
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const existingProvider = providers.find(p => p.id === s.id);
+  
+  if(existingProvider){
+    existingProvider.name = fullName;
+    existingProvider.firstName = firstName;
+    existingProvider.lastName = lastName;
+    existingProvider.services = services;
+    existingProvider.bio = bio;
+    existingProvider.licenses = profile.licenses;
+    existingProvider.certifications = profile.certifications;
+    existingProvider.portfolio = portfolioPhotos;
+    existingProvider.socials = socials;
+    existingProvider.availability = availability;
+    save(STORAGE_KEYS.PROVIDERS, providers);
+  }
+  
+  alert('Profile updated successfully! 🎉');
+  location.hash = `#profile?id=${s.id}`;
 }
 
 // New: Choose Service then Calendar
@@ -1275,9 +1778,8 @@ function sortBy(kind){
 }
 
 function toggleServiceFilter(svc){
-  const q = new URLSearchParams(location.search).get('q') || '';
-  const next = q ? `${q} ${svc}` : svc;
-  onSearch(next);
+  // Replace the search term instead of appending
+  onSearch(svc);
 }
 
 // Enhanced Booking flow
@@ -1530,10 +2032,311 @@ function banProvider(id){
   renderAdmin();
 }
 
+// Support request functions
+function submitSupportRequest(){
+  const email = document.getElementById('supEmail').value.trim();
+  const message = document.getElementById('supMsg').value.trim();
+  
+  if(!email || !message){
+    alert('Please fill in all fields.');
+    return;
+  }
+  
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const request = {
+    id: `sr_${Date.now()}`,
+    email: email,
+    message: message,
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  
+  supportRequests.push(request);
+  save(STORAGE_KEYS.SUPPORT_REQUESTS, supportRequests);
+
+  // Send notification message to user
+  sendSupportNotificationToUser(email, request.id);
+  
+  alert('Support request submitted successfully! We\'ll get back to you soon.');
+  
+  // Clear form
+  document.getElementById('supEmail').value = '';
+  document.getElementById('supMsg').value = '';
+}
+
+function respondToSupport(requestId){
+  const response = prompt('Enter your response to the user:');
+  if(!response) return;
+  
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const request = supportRequests.find(r => r.id === requestId);
+  if(request){
+    request.adminResponse = response;
+    request.responseDate = Date.now();
+    request.status = 'responded';
+    save(STORAGE_KEYS.SUPPORT_REQUESTS, supportRequests);
+    
+    // Send message notification to user
+    sendSupportResponseToUser(request.email, response, requestId);
+    
+    // Send email notification (simulated)
+    sendSupportEmailNotification(request.email, response);
+    
+    alert('Response sent successfully!');
+    renderSupport();
+  }
+}
+
+function markSupportResolved(requestId){
+  if(!confirm('Mark this support request as resolved?')) return;
+  
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const request = supportRequests.find(r => r.id === requestId);
+  if(request){
+    request.status = 'resolved';
+    request.resolvedDate = Date.now();
+    save(STORAGE_KEYS.SUPPORT_REQUESTS, supportRequests);
+    
+    alert('Support request marked as resolved!');
+    renderSupport();
+  }
+}
+
+function deleteSupportRequest(requestId){
+  if(!confirm('Delete this support request? This action cannot be undone.')) return;
+  
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const filtered = supportRequests.filter(r => r.id !== requestId);
+  save(STORAGE_KEYS.SUPPORT_REQUESTS, filtered);
+  
+  alert('Support request deleted.');
+  renderSupport();
+}
+
+function sendSupportEmailNotification(userEmail, response){
+  // Simulate email notification
+  console.log(`📧 Email sent to ${userEmail}:`);
+  console.log(`Subject: Re: Your Tide Together Support Request`);
+  console.log(`Message: ${response}`);
+  console.log(`\nThis is a simulated email notification. In a real application, this would send an actual email to the user.`);
+}
+
+function sendSupportNotificationToUser(userEmail, requestId){
+  // Find the user by email
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.email === userEmail);
+  
+  if(!user) {
+    console.log(`User with email ${userEmail} not found for support notification`);
+    return;
+  }
+  
+  // Create a message from the support bot
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const threadId = `support_${requestId}`;
+  
+  const botMessage = {
+    id: `msg_${Date.now()}`,
+    threadId: threadId,
+    from: 'support_bot',
+    fromName: 'Tide Together Support',
+    to: user.id,
+    toName: user.name,
+    text: `Thank you for contacting Tide Together Support! We have received your support request and our team is reviewing it. We'll get back to you as soon as possible.\n\nRequest ID: ${requestId}\nStatus: Received and Under Review\n\nIf you have any urgent concerns, please don't hesitate to reach out again.`,
+    createdAt: Date.now()
+  };
+  
+  messages.push(botMessage);
+  save(STORAGE_KEYS.MESSAGES, messages);
+  
+  console.log(`📨 Support notification sent to user ${user.name} (${userEmail})`);
+}
+
+function sendSupportResponseToUser(userEmail, adminResponse, requestId){
+  // Find the user by email
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.email === userEmail);
+  
+  if(!user) {
+    console.log(`User with email ${userEmail} not found for support response`);
+    return;
+  }
+  
+  // Create a message from the support bot with admin response
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const threadId = `support_${requestId}`;
+  
+  const botMessage = {
+    id: `msg_${Date.now()}`,
+    threadId: threadId,
+    from: 'support_bot',
+    fromName: 'Tide Together Support',
+    to: user.id,
+    toName: user.name,
+    text: `Hello! Our support team has reviewed your request and here's our response:\n\n${adminResponse}\n\nRequest ID: ${requestId}\nStatus: Responded\n\nIf you need further assistance, please don't hesitate to contact us again. Thank you for using Tide Together!`,
+    createdAt: Date.now()
+  };
+  
+  messages.push(botMessage);
+  save(STORAGE_KEYS.MESSAGES, messages);
+  
+  console.log(`📨 Support response sent to user ${user.name} (${userEmail})`);
+}
+
+function resetSupportRequests(){
+  if(!confirm('Reset all support requests to sample data? This will delete all current requests.')) return;
+  
+  const sampleRequests = [
+    {
+      id: 'sr_sample1',
+      email: 'student1@crimson.ua.edu',
+      message: 'I need help with a provider who didn\'t show up for our appointment. Can you help me get a refund?',
+      status: 'pending',
+      createdAt: Date.now() - 86400000 * 2 // 2 days ago
+    },
+    {
+      id: 'sr_sample2',
+      email: 'student2@crimson.ua.edu',
+      message: 'I want to report inappropriate behavior from a user. They sent me inappropriate messages.',
+      status: 'responded',
+      adminResponse: 'Thank you for reporting this. We have reviewed the case and taken appropriate action. The user has been warned and their account is being monitored.',
+      responseDate: Date.now() - 86400000 * 1, // 1 day ago
+      createdAt: Date.now() - 86400000 * 3 // 3 days ago
+    },
+    {
+      id: 'sr_sample3',
+      email: 'student3@crimson.ua.edu',
+      message: 'How do I update my profile information? I can\'t find the edit button.',
+      status: 'resolved',
+      adminResponse: 'You can now edit your profile by going to your profile page and clicking the "Edit Profile" button. We\'ve added this feature based on your feedback!',
+      responseDate: Date.now() - 86400000 * 4, // 4 days ago
+      resolvedDate: Date.now() - 86400000 * 1, // 1 day ago
+      createdAt: Date.now() - 86400000 * 5 // 5 days ago
+    }
+  ];
+  
+  save(STORAGE_KEYS.SUPPORT_REQUESTS, sampleRequests);
+  alert('Support requests reset to sample data!');
+  renderSupport();
+}
+
+// Debug function to test support system
+window.debugSupport = function(){
+  const session = getSession();
+  const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const adminEmails = [
+    'faarnaoperez@crimson.ua.edu',
+    'dhnguyen3@crimson.ua.edu', 
+    'zkmccluney@crimson.ua.edu',
+    'jdmiller16@crimson.ua.edu'
+  ];
+  const isAdmin = session && adminEmails.includes(session.email);
+  
+  console.log('=== SUPPORT SYSTEM DEBUG ===');
+  console.log('Current session:', session);
+  console.log('Is admin:', isAdmin);
+  console.log('Support requests count:', supportRequests.length);
+  console.log('Support requests:', supportRequests);
+  console.log('Admin emails:', adminEmails);
+  console.log('===========================');
+  
+  return {
+    session,
+    isAdmin,
+    supportRequests,
+    adminEmails
+  };
+};
+
+// Debug function to test profile system
+window.debugProfile = function(){
+  const session = getSession();
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const currentProvider = providers.find(p => p.id === session?.id);
+  
+  console.log('=== PROFILE SYSTEM DEBUG ===');
+  console.log('Current session:', session);
+  console.log('Current provider:', currentProvider);
+  console.log('All providers:', providers);
+  console.log('Has profile in session:', !!session?.profile);
+  console.log('Profile data:', session?.profile);
+  console.log('============================');
+  
+  return {
+    session,
+    currentProvider,
+    providers,
+    hasProfile: !!session?.profile
+  };
+};
+
+// Debug function to test profile persistence
+window.debugProfilePersistence = function(){
+  const session = getSession();
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = session ? providers.find(p => p.id === session.id) : null;
+  
+  console.log('=== PROFILE PERSISTENCE DEBUG ===');
+  console.log('Current session:', session);
+  console.log('User provider:', userProvider);
+  console.log('Has complete profile:', userProvider && userProvider.services && userProvider.services.length > 0 && !userProvider.services.includes('New User'));
+  console.log('All providers:', providers);
+  console.log('================================');
+  
+  return {
+    session,
+    userProvider,
+    hasCompleteProfile: userProvider && userProvider.services && userProvider.services.length > 0 && !userProvider.services.includes('New User')
+  };
+};
+
+// Debug function to test authentication flow
+window.debugAuthFlow = function(cwid, email){
+  const userId = `u_${cwid}`;
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const existingProvider = providers.find(p => p.id === userId);
+  
+  console.log('=== AUTH FLOW DEBUG ===');
+  console.log('CWID:', cwid);
+  console.log('Email:', email);
+  console.log('User ID:', userId);
+  console.log('Existing provider:', existingProvider);
+  console.log('Has services:', existingProvider?.services);
+  console.log('Services length:', existingProvider?.services?.length);
+  console.log('Includes New User:', existingProvider?.services?.includes('New User'));
+  console.log('Should go to home:', existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User'));
+  console.log('======================');
+  
+  return {
+    userId,
+    existingProvider,
+    shouldGoToHome: existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')
+  };
+};
+
+window.testLogin = function() {
+  console.log('=== TEST LOGIN ===');
+  console.log('Testing with CWID: 12345678, Email: test@crimson.ua.edu');
+  
+  // Simulate form submission
+  document.getElementById('cwid_page').value = '12345678';
+  document.getElementById('email_page').value = 'test@crimson.ua.edu';
+  
+  console.log('Calling submitAuthPage...');
+  submitAuthPage();
+  
+  console.log('=== END TEST ===');
+};
+
 // Auth dialog events
 document.getElementById('loginBtn').addEventListener('click', () => {
   const s = getSession();
-  if(s){ setSession(null); navigate(location.hash || '#home'); return; }
+  if(s){ 
+    setSession(null); 
+    console.log('User logged out, redirecting to auth page');
+    navigate('#auth'); 
+    return; 
+  }
   document.getElementById('authDialog').showModal();
 });
 
@@ -1546,32 +2349,57 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   const name = email.split('@')[0].replace('.', ' ');
   const userId = `u_${cwid}`;
   
-  // Create basic provider profile immediately
+  // Check if user already has a complete profile
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
-  if(!providers.find(p => p.id === userId)){
-    providers.push({ 
-      id: userId, 
-      name: name, 
-      services: ['New User'], 
-      rating: 5.0, 
-      reviewsCount: 0, 
-      distanceMiles: 0.5, 
-      bio: 'New user - profile setup pending', 
-      licenses: [], 
-      certifications: [], 
-      portfolio: [], 
-      socials: {}, 
-      availability: [], 
-      campus: 'UA',
-      cwid: cwid,
-      email: email
-    });
-    save(STORAGE_KEYS.PROVIDERS, providers);
-  }
+  const existingProvider = providers.find(p => p.id === userId);
   
-  setSession({ id: userId, cwid, email, name });
-  document.getElementById('authDialog').close();
-  navigate('#home');
+  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
+    // User has a complete profile - load it into session
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
+    document.getElementById('authDialog').close();
+    console.log('Dialog auth: Navigating to #home');
+    navigate('#home');
+  } else {
+    // User needs to create/complete profile
+    if(!existingProvider){
+      providers.push({ 
+        id: userId, 
+        name: name, 
+        services: ['New User'], 
+        rating: 5.0, 
+        reviewsCount: 0, 
+        distanceMiles: 0.5, 
+        bio: 'New user - profile setup pending', 
+        licenses: [], 
+        certifications: [], 
+        portfolio: [], 
+        socials: {}, 
+        availability: [], 
+        campus: 'UA',
+        cwid: cwid,
+        email: email
+      });
+      save(STORAGE_KEYS.PROVIDERS, providers);
+    }
+    
+    setSession({ id: userId, cwid, email, name, profile: null });
+    document.getElementById('authDialog').close();
+    console.log('Dialog auth: Navigating to #create-profile');
+    navigate('#create-profile');
+  }
 });
 
 // Booking dialog event listener
@@ -1596,15 +2424,32 @@ function clearAllData(){
 }
 
 // Init
+console.log('Initializing application...');
 seed();
 updateAuthUI();
 
-window.addEventListener('hashchange', () => navigate(location.hash));
+// Check for existing session on page load
+if(validateSession()) {
+  const existingSession = getSession();
+  console.log('Found valid existing session:', existingSession);
+  console.log('User is already logged in, navigating to requested page or home');
+  // User is already logged in, navigate to the requested page or home
+  const targetHash = location.hash || '#home';
+  console.log('Navigating to:', targetHash);
+  navigate(targetHash);
+} else {
+  console.log('No valid session found, showing auth page');
+  // No session found, show auth page
+  navigate('#auth');
+}
+
+window.addEventListener('hashchange', () => {
+  console.log('Hash changed to:', location.hash);
+  navigate(location.hash);
+});
 document.querySelectorAll('.tt-nav__link').forEach(btn => btn.addEventListener('click', (e)=>{
   const route = e.currentTarget.getAttribute('data-route');
   location.hash = route;
 }));
-
-navigate(location.hash || '#auth');
 
 
