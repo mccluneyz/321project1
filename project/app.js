@@ -8,7 +8,9 @@ const STORAGE_KEYS = {
   REVIEWS: 'tt_reviews',
   MESSAGES: 'tt_messages',
   SESSION: 'tt_session',
-  SUPPORT_REQUESTS: 'tt_support_requests'
+  SUPPORT_REQUESTS: 'tt_support_requests',
+  BLOCKED_DATES: 'tt_blocked_dates',
+  REMINDERS: 'tt_reminders'
 };
 
 const SERVICES = [
@@ -43,7 +45,7 @@ function seed(){
         name:'Ava Johnson',
         services:['Esthetician'],
         rating:4.9,
-        reviewsCount:18,
+        reviewsCount:2,
         distanceMiles:1.2,
         bio:'Professional esthetician specializing in eyelash extensions, eyebrow shaping, and nail art. Licensed with 3+ years of experience. I provide mobile services on campus and maintain the highest standards of hygiene and safety.',
         licenses:['State Esthetics License', 'Mobile Service Permit'],
@@ -65,7 +67,7 @@ function seed(){
         name:'Marcus Lee',
         services:['Barber','Hairstylist'],
         rating:4.8,
-        reviewsCount:25,
+        reviewsCount:2,
         distanceMiles:0.8,
         bio:'Master barber specializing in precision fades, braids, and modern cuts. 4+ years experience with mobile appointments available on campus. I stay updated with the latest trends and techniques in men\'s and women\'s hair styling.',
         licenses:['Cosmetology License', 'Barber License'],
@@ -87,7 +89,7 @@ function seed(){
         name:'Priya Patel',
         services:['Tutor'],
         rating:5.0,
-        reviewsCount:12,
+        reviewsCount:1,
         distanceMiles:2.4,
         bio:'Senior Computer Science student and Teaching Assistant specializing in MIS/CS courses. Expert in data structures, algorithms, SQL, and systems programming. Available for one-on-one tutoring and group study sessions.',
         licenses:[],
@@ -108,7 +110,7 @@ function seed(){
         name:'Diego Ramirez',
         services:['Joyride','Maintenance'],
         rating:4.7,
-        reviewsCount:9,
+        reviewsCount:1,
         distanceMiles:1.0,
         bio:'Reliable transportation and handyman services around campus. I provide rides, jump starts, and basic maintenance including plumbing and electrical fixes. CPR certified with a clean driving record.',
         licenses:['Valid Driver License', 'Commercial Vehicle Permit'],
@@ -129,7 +131,7 @@ function seed(){
         name:'Sophia Chen',
         services:['Photography'],
         rating:4.9,
-        reviewsCount:15,
+        reviewsCount:1,
         distanceMiles:1.5,
         bio:'Professional photographer specializing in portraits, events, and lifestyle photography. Available for graduation photos, parties, and special events on campus. High-quality equipment and quick turnaround times.',
         licenses:['Business Photography License'],
@@ -151,7 +153,7 @@ function seed(){
         name:'Jake Thompson',
         services:['Pet Care'],
         rating:4.8,
-        reviewsCount:22,
+        reviewsCount:1,
         distanceMiles:0.5,
         bio:'Animal lover and experienced pet sitter. I provide dog walking, pet sitting, and basic grooming services. Available for overnight care and have experience with various breeds and special needs pets.',
         licenses:['Pet Care Business License'],
@@ -236,8 +238,11 @@ const routes = {
   '#create-profile': renderCreateProfile,
   '#choose-service': renderChooseService,
   '#service-calendar': renderServiceCalendar,
-  '#privacy': () => renderStatic('Privacy Policy coming soon.'),
-  '#terms': () => renderStatic('Terms of Service coming soon.')
+  '#about': renderAboutPage,
+  '#my-bookings': renderMyBookings,
+  '#manage-availability': renderManageAvailability,
+  '#privacy': renderPrivacyPolicy,
+  '#terms': renderTermsOfService
 };
 
 function navigate(hash){
@@ -385,6 +390,18 @@ function renderHome(){
   const top = providers.slice(0,4);
   const session = getSession();
   
+  // Check for active reminders
+  let activeReminders = [];
+  if(session) {
+    const reminders = load(STORAGE_KEYS.REMINDERS, []);
+    const now = new Date();
+    activeReminders = reminders.filter(rem => 
+      rem.userId === session.id && 
+      new Date(rem.reminderDate) <= now &&
+      !rem.dismissed
+    );
+  }
+  
   mount(h`
     <div style="min-height:100vh;background:linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
       <!-- Hero Section -->
@@ -408,6 +425,24 @@ function renderHome(){
               💬 Contact Support
             </button>
           </div>
+          
+          <!-- Active Reminders -->
+          ${activeReminders.length > 0 ? h`
+            <div style="background:#fff3cd;border:1px solid #ffeaa7;padding:20px;margin:20px;border-radius:12px;">
+              <h3 style="margin:0 0 16px;font-size:18px;font-weight:600;color:#856404;">🔔 Active Reminders</h3>
+              ${activeReminders.map(reminder => h`
+                <div style="background:white;padding:16px;border-radius:8px;margin-bottom:12px;border-left:4px solid #ffc107;">
+                  <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                      <div style="font-weight:600;color:var(--ink);margin-bottom:4px;">${reminder.message}</div>
+                      <div style="font-size:14px;color:var(--ink-600);">Appointment: ${new Date(reminder.date).toLocaleDateString()} at ${reminder.time}</div>
+                    </div>
+                    <button onclick="dismissReminder('${reminder.id}')" style="background:#6c757d;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Dismiss</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
           
           <!-- Services Grid -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;max-width:600px;margin:0 auto">
@@ -436,7 +471,7 @@ function renderHome(){
                 <p style="margin:0 0 12px;color:var(--ink-600);font-size:14px">${p.services.join(' • ')} • ${p.distanceMiles} mi away</p>
                 <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px;line-height:1.4">${p.bio.substring(0,100)}${p.bio.length > 100 ? '...' : ''}</p>
                 <div style="display:flex;gap:8px">
-                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:white;color:var(--crimson);border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)';this.style.borderColor='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)';this.style.borderColor='var(--crimson)'">
                     👁️ View Profile
                   </button>
                   <button onclick="openBooking('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:none;padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
@@ -547,7 +582,7 @@ function renderBrowse(){
                 <p style="margin:0 0 12px;color:var(--ink-600);font-size:14px">${p.services.join(' • ')} • ${p.distanceMiles} mi away</p>
                 <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px;line-height:1.4">${p.bio.substring(0,120)}${p.bio.length > 120 ? '...' : ''}</p>
                 <div style="display:flex;gap:8px">
-                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:white;color:var(--crimson);border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson)';this.style.color='white'" onmouseout="this.style.background='white';this.style.color='var(--crimson)'">
+                  <button onclick="viewProfile('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:1px solid var(--crimson);padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)';this.style.borderColor='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)';this.style.borderColor='var(--crimson)'">
                     👁️ View Profile
                   </button>
                   <button onclick="openBooking('${p.id}')" style="flex:1;background:var(--crimson);color:white;border:none;padding:12px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
@@ -656,9 +691,17 @@ function renderProfile(){
         <!-- Action Buttons -->
         <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
           ${isOwnProfile ? 
-            `<button onclick="location.hash='#edit-profile'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
-              ✏️ Edit Profile
-            </button>` :
+            `<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+              <button onclick="location.hash='#edit-profile'" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
+                ✏️ Edit Profile
+              </button>
+              <button onclick="location.hash='#my-bookings'" style="background:#28a745;color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(40,167,69,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(40,167,69,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(40,167,69,0.3)'">
+                📅 My Bookings
+              </button>
+              <button onclick="location.hash='#manage-availability'" style="background:#17a2b8;color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(23,162,184,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(23,162,184,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(23,162,184,0.3)'">
+                🚫 Manage Availability
+              </button>
+            </div>` :
             getSession() ? 
               `<button onclick="openBooking('${p.id}')" style="background:var(--crimson);color:white;border:none;padding:16px 32px;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(153,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(153,0,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 16px rgba(153,0,0,0.3)'">
                 📅 Book Service
@@ -718,11 +761,28 @@ function renderProfile(){
           <!-- Portfolio Gallery -->
           <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
             <h2 style="margin:0 0 20px;font-size:24px;color:var(--ink)">📸 Portfolio</h2>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div id="portfolioSlideshow" style="position:relative;max-width:600px;margin:0 auto;">
+              <div id="portfolioContainer" style="position:relative;height:300px;border-radius:12px;overflow:hidden;background:#f0f0f0;">
+                ${(p.portfolio.length? p.portfolio : [
+                  'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
+                  'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
+                ).map((src, index) => `
+                  <div id="portfolioSlide${index}" style="position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${src});background-size:cover;background-position:center;opacity:${index === 0 ? 1 : 0};transition:opacity 0.5s ease-in-out;cursor:pointer;" onclick="window.open('${src}', '_blank')"></div>
+                `).join('')}
+              </div>
               ${(p.portfolio.length? p.portfolio : [
                 'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
                 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
-              ).slice(0,4).map(src => `<div style='height:160px;background-image:url(${src});background-size:cover;background-position:center;border-radius:12px;cursor:pointer;transition:transform 0.2s' onclick="window.open('${src}', '_blank')" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"></div>`).join('')}
+              ).length > 1 ? `
+                <button id="portfolioPrev" onclick="changePortfolioSlide(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">‹</button>
+                <button id="portfolioNext" onclick="changePortfolioSlide(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">›</button>
+                <div style="text-align:center;margin-top:16px;">
+                  <span id="portfolioCounter" style="background:rgba(0,0,0,0.7);color:white;padding:6px 12px;border-radius:20px;font-size:14px;">1 / ${(p.portfolio.length? p.portfolio : [
+                    'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
+                    'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
+                  ).length}</span>
+                </div>
+              ` : ''}
             </div>
             ${p.portfolio.length === 0 ? '<p style="text-align:center;color:var(--ink-300);margin:20px 0">No portfolio images available</p>' : ''}
           </div>
@@ -737,12 +797,17 @@ function renderProfile(){
                     <div style="width:40px;height:40px;background:var(--crimson);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:600">
                       ${r.user.charAt(0)}
                     </div>
-                    <div>
+                    <div style="flex:1">
                       <div style="font-weight:600;color:var(--ink)">${r.user}</div>
                       <div style="display:flex;align-items:center;gap:4px;font-size:14px;color:var(--ink-300)">
                         ${'⭐'.repeat(r.rating)} • ${new Date(r.createdAt).toLocaleDateString()}
                       </div>
                     </div>
+                    ${session && session.name === r.user ? `
+                      <button onclick="deleteReview('${r.id}')" style="background:#ff4444;color:white;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#cc0000'" onmouseout="this.style.background='#ff4444'">
+                        🗑️ Delete
+                      </button>
+                    ` : ''}
                   </div>
                   <p style="margin:0;line-height:1.5;color:var(--ink-600)">${r.text}</p>
                 </div>
@@ -769,6 +834,9 @@ function renderProfile(){
       </div>
     </div>
   `);
+  
+  // Initialize portfolio slideshow after rendering
+  setTimeout(initPortfolioSlideshow, 100);
 }
 
 // Global variable to track selected conversation
@@ -1176,6 +1244,507 @@ function renderAdmin(){
 
 function renderStatic(text){ mount(`<section><p>${text}</p></section>`); }
 
+function renderPrivacyPolicy(){
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:800px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+        <h1 style="margin:0 0 32px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">Privacy Policy</h1>
+        
+        <div style="line-height:1.6;color:var(--ink-600);font-size:16px;">
+          <p><strong>Last updated:</strong> ${new Date().toLocaleDateString()}</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Information We Collect</h2>
+          <p>We collect information you provide directly to us, such as when you create an account, book services, or contact us for support:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>CWID (Campus Wide ID) and Crimson email address</li>
+            <li>Profile information including name, bio, services offered, and portfolio images</li>
+            <li>Booking requests and service details</li>
+            <li>Messages sent through our platform</li>
+            <li>Support requests and communications</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">How We Use Your Information</h2>
+          <p>We use the information we collect to:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Provide and improve our services</li>
+            <li>Facilitate connections between service providers and clients</li>
+            <li>Process booking requests and manage appointments</li>
+            <li>Send important updates and notifications</li>
+            <li>Respond to support requests</li>
+            <li>Ensure platform safety and prevent fraud</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Information Sharing</h2>
+          <p>We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>To facilitate service bookings between users</li>
+            <li>When required by law or to protect our rights</li>
+            <li>With your explicit consent</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Data Security</h2>
+          <p>We implement appropriate security measures to protect your personal information. However, no method of transmission over the internet is 100% secure.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Your Rights</h2>
+          <p>You have the right to:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Access and update your personal information</li>
+            <li>Delete your account and associated data</li>
+            <li>Opt out of certain communications</li>
+            <li>Request a copy of your data</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Contact Us</h2>
+          <p>If you have any questions about this Privacy Policy, please contact us through our support system.</p>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function renderTermsOfService(){
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:800px;margin:0 auto;background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+        <h1 style="margin:0 0 32px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">Terms of Service</h1>
+        
+        <div style="line-height:1.6;color:var(--ink-600);font-size:16px;">
+          <p><strong>Last updated:</strong> ${new Date().toLocaleDateString()}</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Acceptance of Terms</h2>
+          <p>By accessing and using Tide Together, you accept and agree to be bound by the terms and provision of this agreement.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Eligibility</h2>
+          <p>To use Tide Together, you must:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Be a current University of Alabama student</li>
+            <li>Have a valid CWID and Crimson email address</li>
+            <li>Be at least 18 years old</li>
+            <li>Provide accurate and complete information</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Service Provider Responsibilities</h2>
+          <p>Service providers agree to:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Provide accurate information about their services and qualifications</li>
+            <li>Maintain appropriate licenses and certifications where required</li>
+            <li>Deliver services as described and agreed upon</li>
+            <li>Maintain professional conduct and safety standards</li>
+            <li>Respond promptly to booking requests and messages</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Client Responsibilities</h2>
+          <p>Clients agree to:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Provide accurate booking information</li>
+            <li>Show up for scheduled appointments or cancel with reasonable notice</li>
+            <li>Pay for services as agreed upon</li>
+            <li>Treat service providers with respect</li>
+            <li>Report any issues or concerns promptly</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Prohibited Activities</h2>
+          <p>You may not:</p>
+          <ul style="margin:16px 0;padding-left:24px;">
+            <li>Use the platform for illegal activities</li>
+            <li>Provide false or misleading information</li>
+            <li>Harass, abuse, or harm other users</li>
+            <li>Violate any applicable laws or regulations</li>
+            <li>Attempt to circumvent platform safety measures</li>
+          </ul>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Payment and Cancellation</h2>
+          <p>Payment terms are agreed upon between service providers and clients. Cancellation policies should be communicated clearly before booking.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Limitation of Liability</h2>
+          <p>Tide Together is a platform that connects students. We are not responsible for the quality of services provided by individual service providers or any disputes between users.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Termination</h2>
+          <p>We reserve the right to terminate accounts that violate these terms or engage in prohibited activities.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Changes to Terms</h2>
+          <p>We may update these terms from time to time. Continued use of the platform constitutes acceptance of any changes.</p>
+          
+          <h2 style="color:var(--ink);margin:32px 0 16px;font-size:24px;">Contact Information</h2>
+          <p>For questions about these Terms of Service, please contact us through our support system.</p>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function renderAboutPage(){
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:1000px;margin:0 auto;">
+        <!-- Hero Section -->
+        <div style="background:white;border-radius:20px;padding:60px 40px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.1);margin-bottom:40px;">
+          <div style="width:120px;height:120px;background:linear-gradient(135deg,var(--crimson),#ff6b6b);border-radius:50%;margin:0 auto 32px;display:flex;align-items:center;justify-content:center;font-size:64px;color:white;box-shadow:0 12px 40px rgba(153,0,0,0.2);">
+            🎓
+          </div>
+          <h1 style="margin:0;font-size:48px;font-weight:800;color:var(--ink);margin-bottom:16px;line-height:1.1">
+            About Tide Together
+          </h1>
+          <p style="margin:0;font-size:20px;color:var(--ink-600);line-height:1.5;max-width:600px;margin:0 auto;">
+            Connecting University of Alabama students for peer-to-peer services at student-friendly prices.
+          </p>
+        </div>
+        
+        <!-- What We Do Section -->
+        <div style="background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:32px;">
+          <h2 style="margin:0 0 24px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">What We Do</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px;">
+            <div style="text-align:center;">
+              <div style="width:80px;height:80px;background:var(--crimson);border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;">
+                🔍
+              </div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">Find Services</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">Browse licensed and peer-recommended service providers for everything from beauty services to tutoring, right on campus.</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:80px;height:80px;background:var(--crimson);border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;">
+                📅
+              </div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">Easy Booking</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">Book appointments directly through our platform with built-in messaging and scheduling tools.</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:80px;height:80px;background:var(--crimson);border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;">
+                ⭐
+              </div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">Quality Assurance</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">All providers are verified students with reviews and ratings to ensure quality service.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- How It Works Section -->
+        <div style="background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:32px;">
+          <h2 style="margin:0 0 32px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">How It Works</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;">
+            <div style="text-align:center;">
+              <div style="width:60px;height:60px;background:var(--crimson);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;font-weight:700;">
+                1
+              </div>
+              <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">Sign Up</h3>
+              <p style="margin:0;color:var(--ink-600);font-size:14px;line-height:1.4;">Create your account using your CWID and Crimson email address.</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:60px;height:60px;background:var(--crimson);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;font-weight:700;">
+                2
+              </div>
+              <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">Browse Services</h3>
+              <p style="margin:0;color:var(--ink-600);font-size:14px;line-height:1.4;">Search for services you need or browse by category.</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:60px;height:60px;background:var(--crimson);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;font-weight:700;">
+                3
+              </div>
+              <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">Book & Connect</h3>
+              <p style="margin:0;color:var(--ink-600);font-size:14px;line-height:1.4;">Book your service and connect directly with the provider.</p>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:60px;height:60px;background:var(--crimson);border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;font-weight:700;">
+                4
+              </div>
+              <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">Get Service</h3>
+              <p style="margin:0;color:var(--ink-600);font-size:14px;line-height:1.4;">Receive your service and leave a review to help others.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Services Section -->
+        <div style="background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:32px;">
+          <h2 style="margin:0 0 24px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">Available Services</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+            ${['Esthetician','Tutor','Barber','Hairstylist','Joyride','Maintenance','Photography','Laundry','Cleaning','Pet Care'].map(service => `
+              <div style="background:#f8f9fa;border:2px solid #e3e5e9;padding:20px;border-radius:12px;text-align:center;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--crimson)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='#e3e5e9';this.style.transform='translateY(0)'">
+                <div style="font-size:24px;margin-bottom:8px;">${getServiceIcon(service)}</div>
+                <div style="font-weight:600;color:var(--ink);font-size:16px;">${service}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- Safety & Support Section -->
+        <div style="background:white;border-radius:16px;padding:40px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+          <h2 style="margin:0 0 24px;font-size:32px;font-weight:700;color:var(--ink);text-align:center">Safety & Support</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:32px;">
+            <div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">🔒 Student Verification</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">All users are verified University of Alabama students with valid CWID and Crimson email addresses.</p>
+            </div>
+            <div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">⭐ Review System</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">Comprehensive review and rating system helps you choose the best service providers.</p>
+            </div>
+            <div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">💬 Direct Communication</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">Built-in messaging system allows you to communicate directly with service providers.</p>
+            </div>
+            <div>
+              <h3 style="margin:0 0 12px;font-size:20px;font-weight:600;color:var(--ink)">🛡️ Support Team</h3>
+              <p style="margin:0;color:var(--ink-600);line-height:1.5;">Our support team is here to help with any questions or concerns you may have.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+// Helper function to get service icons
+function getServiceIcon(service) {
+  const icons = {
+    'Esthetician': '💄',
+    'Tutor': '📚',
+    'Barber': '✂️',
+    'Hairstylist': '💇‍♀️',
+    'Joyride': '🚗',
+    'Maintenance': '🔧',
+    'Photography': '📸',
+    'Laundry': '👕',
+    'Cleaning': '🧹',
+    'Pet Care': '🐕'
+  };
+  return icons[service] || '🔧';
+}
+
+function renderMyBookings(){
+  const gate = gateIfNeeded('#my-bookings');
+  if(gate){ location.hash = gate; return; }
+  
+  const session = getSession();
+  if(!session){ location.hash = '#auth'; return; }
+  
+  const bookings = load(STORAGE_KEYS.BOOKINGS, []);
+  const myBookings = bookings.filter(b => b.providerId === session.id);
+  const sortedBookings = myBookings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:1000px;margin:0 auto;">
+        <!-- Header -->
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:8px">My Bookings</h1>
+              <p style="margin:0;color:var(--ink-600);font-size:16px">View and manage service requests from clients</p>
+            </div>
+            <button onclick="location.hash='#profile'" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+              ← Back to Profile
+            </button>
+          </div>
+        </div>
+        
+        <!-- Bookings List -->
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          ${sortedBookings.length > 0 ? sortedBookings.map(booking => h`
+            <div style="border:1px solid #e3e5e9;border-radius:12px;padding:24px;margin-bottom:20px;background:#fafafa">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px">
+                <div>
+                  <h3 style="margin:0 0 8px;font-size:18px;font-weight:600;color:var(--ink)">${booking.service} Request</h3>
+                  <div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">
+                    <span style="color:var(--ink-600);font-size:14px"><strong>From:</strong> ${booking.userName}</span>
+                    <span style="color:var(--ink-600);font-size:14px"><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString()}</span>
+                    ${booking.time ? `<span style="color:var(--ink-600);font-size:14px"><strong>Time:</strong> ${booking.time}</span>` : ''}
+                    <span style="color:var(--ink-600);font-size:14px"><strong>Requested:</strong> ${new Date(booking.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px">
+                  <span style="background:${booking.status === 'pending' ? '#fff3cd' : booking.status === 'confirmed' ? '#d4edda' : booking.status === 'cancelled' ? '#f8d7da' : '#e2e3e5'};color:${booking.status === 'pending' ? '#856404' : booking.status === 'confirmed' ? '#155724' : booking.status === 'cancelled' ? '#721c24' : '#6c757d'};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500">
+                    ${booking.status.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+              
+              ${booking.note ? h`
+                <div style="background:white;padding:16px;border-radius:8px;margin-bottom:16px">
+                  <h4 style="margin:0 0 8px;font-size:16px;color:var(--ink)">Client Notes:</h4>
+                  <p style="margin:0;line-height:1.6;color:var(--ink-600)">${booking.note}</p>
+                </div>
+              ` : ''}
+              
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                ${booking.status === 'pending' ? h`
+                  <button onclick="updateBookingStatus('${booking.id}', 'confirmed')" style="background:#28a745;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
+                    ✅ Confirm
+                  </button>
+                  <button onclick="updateBookingStatus('${booking.id}', 'cancelled')" style="background:#dc3545;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#c82333'" onmouseout="this.style.background='#dc3545'">
+                    ❌ Cancel
+                  </button>
+                ` : ''}
+                <button onclick="startDM('${booking.userId}')" style="background:var(--crimson);color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  💬 Message Client
+                </button>
+                ${booking.status === 'confirmed' ? h`
+                  <button onclick="updateBookingStatus('${booking.id}', 'completed')" style="background:#17a2b8;color:white;border:none;padding:10px 20px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#138496'" onmouseout="this.style.background='#17a2b8'">
+                    🎉 Mark Complete
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `).join('') : h`
+            <div style="text-align:center;padding:60px 20px;color:var(--ink-300)">
+              <div style="font-size:48px;margin-bottom:16px">📅</div>
+              <h3 style="margin:0 0 8px;font-size:24px;color:var(--ink)">No Bookings Yet</h3>
+              <p style="margin:0;font-size:16px">You haven't received any service requests yet. Keep your profile updated to attract more clients!</p>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function updateBookingStatus(bookingId, newStatus){
+  if(!confirm(`Are you sure you want to ${newStatus} this booking?`)) return;
+  
+  const bookings = load(STORAGE_KEYS.BOOKINGS, []);
+  const booking = bookings.find(b => b.id === bookingId);
+  
+  if(booking){
+    booking.status = newStatus;
+    booking.updatedAt = Date.now();
+    save(STORAGE_KEYS.BOOKINGS, bookings);
+    
+    // Send notification message to client
+    const messages = load(STORAGE_KEYS.MESSAGES, []);
+    const threadId = `thread_${booking.userId}_${booking.providerId}`;
+    const session = getSession();
+    
+    let statusMessage = '';
+    switch(newStatus){
+      case 'confirmed': statusMessage = `Great news! Your ${booking.service} booking for ${new Date(booking.date).toLocaleDateString()} has been confirmed. Looking forward to providing your service!`; break;
+      case 'cancelled': statusMessage = `I'm sorry, but I need to cancel your ${booking.service} booking for ${new Date(booking.date).toLocaleDateString()}. Please let me know if you'd like to reschedule.`; break;
+      case 'completed': statusMessage = `Thank you for choosing my ${booking.service} service! I hope you were satisfied with the service. Please consider leaving a review.`; break;
+    }
+    
+    if(statusMessage){
+      messages.push({
+        id: `m_${Date.now()}`,
+        threadId,
+        from: session.id,
+        fromName: session.name,
+        to: booking.userId,
+        toName: booking.userName,
+        text: statusMessage,
+        createdAt: Date.now()
+      });
+      save(STORAGE_KEYS.MESSAGES, messages);
+    }
+    
+    renderMyBookings();
+  }
+}
+
+function renderManageAvailability(){
+  const gate = gateIfNeeded('#manage-availability');
+  if(gate){ location.hash = gate; return; }
+  
+  const session = getSession();
+  if(!session){ location.hash = '#auth'; return; }
+  
+  const blockedDates = load(STORAGE_KEYS.BLOCKED_DATES, []);
+  const myBlockedDates = blockedDates.filter(bd => bd.providerId === session.id);
+  
+  // Generate next 30 days for blocking
+  const next30Days = Array.from({length: 30}, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return {
+      date: d.toISOString().split('T')[0],
+      label: d.toLocaleDateString(undefined, {weekday: 'short', month: 'short', day: 'numeric'}),
+      isBlocked: myBlockedDates.some(bd => bd.date === d.toISOString().split('T')[0])
+    };
+  });
+  
+  mount(h`
+    <div style="min-height:100vh;background:#f8f9fa;padding:40px 20px;">
+      <div style="max-width:1000px;margin:0 auto;">
+        <!-- Header -->
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h1 style="margin:0;font-size:32px;font-weight:700;color:var(--ink);margin-bottom:8px">Manage Availability</h1>
+              <p style="margin:0;color:var(--ink-600);font-size:16px">Block dates when you're unavailable or don't want to work</p>
+            </div>
+            <button onclick="location.hash='#profile'" style="background:#6c757d;color:white;border:none;padding:12px 24px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#5a6268'" onmouseout="this.style.background='#6c757d'">
+              ← Back to Profile
+            </button>
+          </div>
+        </div>
+        
+        <!-- Calendar Grid -->
+        <div style="background:white;border-radius:20px;padding:40px;box-shadow:0 8px 32px rgba(0,0,0,0.1);">
+          <h2 style="margin:0 0 24px;font-size:24px;font-weight:600;color:var(--ink)">Next 30 Days</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+            ${next30Days.map(day => h`
+              <div style="border:2px solid ${day.isBlocked ? '#dc3545' : '#e3e5e9'};border-radius:12px;padding:16px;background:${day.isBlocked ? '#fff5f5' : '#fafafa'};transition:all 0.2s;cursor:pointer;" 
+                   onclick="toggleDateBlock('${day.date}')"
+                   onmouseover="this.style.borderColor='${day.isBlocked ? '#c82333' : 'var(--crimson)'};this.style.transform='translateY(-2px)'" 
+                   onmouseout="this.style.borderColor='${day.isBlocked ? '#dc3545' : '#e3e5e9'};this.style.transform='translateY(0)'">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div style="font-weight:600;color:var(--ink);font-size:16px">${day.label}</div>
+                  <div style="font-size:20px">${day.isBlocked ? '🚫' : '✅'}</div>
+                </div>
+                <div style="font-size:14px;color:var(--ink-600)">
+                  ${day.isBlocked ? 'Blocked - No bookings' : 'Available for bookings'}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div style="margin-top:32px;padding:24px;background:#f8f9fa;border-radius:12px;">
+            <h3 style="margin:0 0 16px;font-size:18px;font-weight:600;color:var(--ink)">Instructions</h3>
+            <ul style="margin:0;padding-left:20px;color:var(--ink-600);line-height:1.6;">
+              <li>Click on any date to toggle its availability</li>
+              <li>🚫 Red dates are blocked - no one can book services on these days</li>
+              <li>✅ Green dates are available for bookings</li>
+              <li>Blocked dates will appear crossed out on the service calendar</li>
+              <li>You can unblock dates at any time</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function toggleDateBlock(date){
+  const session = getSession();
+  if(!session) return;
+  
+  const blockedDates = load(STORAGE_KEYS.BLOCKED_DATES, []);
+  const existingIndex = blockedDates.findIndex(bd => bd.providerId === session.id && bd.date === date);
+  
+  if(existingIndex >= 0){
+    // Remove the block
+    blockedDates.splice(existingIndex, 1);
+  } else {
+    // Add the block
+    blockedDates.push({
+      id: `bd_${Date.now()}`,
+      providerId: session.id,
+      date: date,
+      createdAt: Date.now()
+    });
+  }
+  
+  save(STORAGE_KEYS.BLOCKED_DATES, blockedDates);
+  renderManageAvailability();
+}
+
+function dismissReminder(reminderId){
+  const reminders = load(STORAGE_KEYS.REMINDERS, []);
+  const reminder = reminders.find(r => r.id === reminderId);
+  if(reminder){
+    reminder.dismissed = true;
+    save(STORAGE_KEYS.REMINDERS, reminders);
+    renderHome(); // Refresh the home page
+  }
+}
+
 // Enhanced Auth Gate with modern design
 function renderAuthGate(){
   mount(h`
@@ -1401,17 +1970,31 @@ function renderCreateProfile(){
             <!-- Work Photos Section -->
             <div style="margin-bottom:32px">
               <h3 style="margin:0 0 16px;font-size:20px;color:var(--ink)">📸 Work Photos</h3>
-              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Add URLs to photos of your work (up to 5 images)</p>
-              <div id="photoInputs">
-                <input class="photo-input" placeholder="https://example.com/your-work-photo1.jpg" 
-                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
-                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
-                <input class="photo-input" placeholder="https://example.com/your-work-photo2.jpg" 
-                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
-                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
-                <input class="photo-input" placeholder="https://example.com/your-work-photo3.jpg" 
-                       style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;margin-bottom:8px;transition:border-color 0.2s;"
-                       onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+              <p style="margin:0 0 16px;color:var(--ink-600);font-size:14px">Upload photos of your work (up to 5 images, PNG, JPG, GIF)</p>
+              <div id="workPhotosContainer" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px">
+                <!-- Work photo previews will be added here -->
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <label for="workPhoto1" style="display:inline-block;background:var(--crimson);color:white;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  📁 Upload Photo 1
+                </label>
+                <input type="file" id="workPhoto1" accept="image/*" style="display:none" onchange="previewWorkPhoto(this, 1)" />
+                <label for="workPhoto2" style="display:inline-block;background:var(--crimson);color:white;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  📁 Upload Photo 2
+                </label>
+                <input type="file" id="workPhoto2" accept="image/*" style="display:none" onchange="previewWorkPhoto(this, 2)" />
+                <label for="workPhoto3" style="display:inline-block;background:var(--crimson);color:white;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  📁 Upload Photo 3
+                </label>
+                <input type="file" id="workPhoto3" accept="image/*" style="display:none" onchange="previewWorkPhoto(this, 3)" />
+                <label for="workPhoto4" style="display:inline-block;background:var(--crimson);color:white;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  📁 Upload Photo 4
+                </label>
+                <input type="file" id="workPhoto4" accept="image/*" style="display:none" onchange="previewWorkPhoto(this, 4)" />
+                <label for="workPhoto5" style="display:inline-block;background:var(--crimson);color:white;padding:12px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'">
+                  📁 Upload Photo 5
+                </label>
+                <input type="file" id="workPhoto5" accept="image/*" style="display:none" onchange="previewWorkPhoto(this, 5)" />
               </div>
             </div>
             
@@ -1450,11 +2033,8 @@ function submitProfileCreate(){
   const portfolio = document.getElementById('portfolio_page').value.trim();
   const certifications = document.getElementById('certifications_page').value.trim();
   
-  // Collect work photos
-  const photoInputs = document.querySelectorAll('.photo-input');
-  const portfolioPhotos = Array.from(photoInputs)
-    .map(input => input.value.trim())
-    .filter(url => url.length > 0);
+  // Collect work photos from uploaded files
+  const portfolioPhotos = uploadedWorkPhotos.filter(photo => photo !== null && photo !== undefined);
   
   if(!firstName || !lastName){ alert('Please enter both first and last name.'); return; }
   if(services.length===0){ alert('Select at least one service you offer.'); return; }
@@ -1804,31 +2384,52 @@ function renderServiceCalendar(){
   if(gate){ location.hash = gate; return; }
   const svc = new URL(location.href).hash.split('?')[1]?.split('=')[1];
   const providers = load(STORAGE_KEYS.PROVIDERS, []).filter(p => p.services.includes(decodeURIComponent(svc||'')));
+  const blockedDates = load(STORAGE_KEYS.BLOCKED_DATES, []);
   const days = Array.from({length:14}, (_,i)=>{
     const d = new Date(); d.setDate(d.getDate()+i);
-    return { date: getISOAfterDays(i), dow: d.getDay(), label: d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}) };
+    const dateStr = getISOAfterDays(i);
+    return { 
+      date: dateStr, 
+      dow: d.getDay(), 
+      label: d.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'}),
+      blockedProviders: blockedDates.filter(bd => bd.date === dateStr).map(bd => bd.providerId)
+    };
   });
   mount(h`
     <section>
       <h2 class="tt-section-title">${decodeURIComponent(svc||'Service')} availability (next 14 days)</h2>
       <div class="tt-grid">
         ${days.map(day => {
-          const available = providers.filter(p => p.availability?.includes(day.dow));
-          return h`<article class='tt-card'>
+          const available = providers.filter(p => 
+            p.availability?.includes(day.dow) && 
+            !day.blockedProviders.includes(p.id)
+          );
+          const blockedCount = providers.filter(p => 
+            p.availability?.includes(day.dow) && 
+            day.blockedProviders.includes(p.id)
+          ).length;
+          const isFullyBlocked = available.length === 0 && blockedCount > 0;
+          
+          return h`<article class='tt-card' style="opacity:${isFullyBlocked ? '0.6' : '1'};position:relative;">
+            ${isFullyBlocked ? '<div style="position:absolute;top:8px;right:8px;background:#dc3545;color:white;padding:4px 8px;border-radius:12px;font-size:12px;font-weight:600;">🚫 BLOCKED</div>' : ''}
             <div class='tt-card__body'>
-              <div class='tt-card__title'>${day.label}</div>
-              <div class='tt-card__meta'>${available.length} providers</div>
+              <div class='tt-card__title' style="text-decoration:${isFullyBlocked ? 'line-through' : 'none'};color:${isFullyBlocked ? '#6c757d' : 'var(--ink)'}">${day.label}</div>
+              <div class='tt-card__meta'>
+                ${available.length} providers available
+                ${blockedCount > 0 ? ` • ${blockedCount} blocked` : ''}
+              </div>
               <div style='display:flex;flex-direction:column;gap:8px;margin-top:8px'>
                 ${available.slice(0,6).map(p => h`
                   <div style='display:flex;justify-content:space-between;align-items:center;gap:8px'>
                     <div>${p.name} • ⭐ ${p.rating}</div>
                     <div>
-                      <button class='tt-button tt-button--ghost' onclick="viewProfile('${p.id}')">View</button>
+                      <button style="background:#f5f5dc;color:#8b4513;border:1px solid #d2b48c;padding:8px 16px;border-radius:8px;font-weight:500;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.background='#e6e6b8'" onmouseout="this.style.background='#f5f5dc'" onclick="viewProfile('${p.id}')">View</button>
                       <button class='tt-button' onclick="proposeSwap('${p.id}', '${decodeURIComponent(svc||'')}', '${day.date}')">DM to Swap</button>
                     </div>
                   </div>
                 `).join('')}
                 ${available.length>6? `<div class='tt-card__meta'>+${available.length-6} more</div>`:''}
+                ${isFullyBlocked ? '<div style="text-align:center;color:#dc3545;font-size:14px;margin-top:8px;font-weight:500;">All providers blocked this day</div>' : ''}
               </div>
             </div>
           </article>`
@@ -1839,11 +2440,20 @@ function renderServiceCalendar(){
 }
 
 // Interactions
+let searchTimeout;
 function onSearch(v){
+  // Clear existing timeout
+  if(searchTimeout) clearTimeout(searchTimeout);
+  
+  // Update URL immediately for better UX
   const url = new URL(location.href);
   url.searchParams.set('q', v);
   history.replaceState(null, '', url.toString());
-  renderBrowse();
+  
+  // Debounce the actual search to prevent excessive re-rendering
+  searchTimeout = setTimeout(() => {
+    renderBrowse();
+  }, 300); // 300ms delay
 }
 
 function sortBy(kind){
@@ -1902,15 +2512,22 @@ function openBooking(providerId){
   }
 }
 
+function closeBookingDialog(){
+  // Close dialog without validation
+  document.getElementById('bookingDialog').close();
+}
+
 function submitBooking(){
   const session = getSession();
   if(!session){ alert('Please sign in to book.'); return; }
   
   const service = document.getElementById('bookingService').value;
   const date = document.getElementById('bookingDate').value;
+  const time = document.getElementById('bookingTime').value;
   const note = document.getElementById('bookingNote').value.trim();
+  const reminder = document.getElementById('bookingReminder').checked;
   
-  if(!service || !date){ alert('Please select a service and date.'); return; }
+  if(!service || !date || !time){ alert('Please select a service, date, and time.'); return; }
   
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const provider = providers.find(p => p.services.includes(service));
@@ -1926,13 +2543,37 @@ function submitBooking(){
     userName: session.name,
     service: service,
     date: date,
+    time: time,
     note: note,
+    reminder: reminder,
     status: 'pending',
     createdAt: Date.now()
   };
   
   bookings.push(booking);
   save(STORAGE_KEYS.BOOKINGS, bookings);
+  
+  // Create reminder if requested
+  if(reminder) {
+    const reminders = load(STORAGE_KEYS.REMINDERS, []);
+    const reminderDate = new Date(`${date}T${time}`);
+    const reminderTime = new Date(reminderDate.getTime() - 24 * 60 * 60 * 1000); // 24 hours before
+    
+    reminders.push({
+      id: `rem_${Date.now()}`,
+      bookingId: booking.id,
+      userId: session.id,
+      userName: session.name,
+      service: service,
+      providerName: provider.name,
+      date: date,
+      time: time,
+      reminderDate: reminderTime.toISOString(),
+      message: `Reminder: You have a ${service} appointment with ${provider.name} tomorrow at ${time}`,
+      createdAt: Date.now()
+    });
+    save(STORAGE_KEYS.REMINDERS, reminders);
+  }
   
   // Send notification message to provider
   const messages = load(STORAGE_KEYS.MESSAGES, []);
@@ -1953,7 +2594,11 @@ function submitBooking(){
   
   // Close dialog and show success
   document.getElementById('bookingDialog').close();
-  alert(`Booking request sent to ${provider.name}! They'll contact you soon.`);
+  let successMessage = `Booking request sent to ${provider.name}! They'll contact you soon.`;
+  if(reminder) {
+    successMessage += ` A reminder has been set for 24 hours before your appointment.`;
+  }
+  alert(successMessage);
   
   // Navigate to messages to see the conversation
   location.hash = '#messages';
@@ -1977,9 +2622,59 @@ function submitReview(providerId){
   const rating = Number(document.getElementById('reviewRating').value);
   const text = document.getElementById('reviewText').value.trim();
   if(!text){ alert('Write something for your review.'); return; }
+  
   const reviews = load(STORAGE_KEYS.REVIEWS, []);
   reviews.push({ id:`r_${Date.now()}`, providerId, user: session.name, rating, text, createdAt: Date.now() });
   save(STORAGE_KEYS.REVIEWS, reviews);
+  
+  // Update provider's review count and rating
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const provider = providers.find(p => p.id === providerId);
+  if(provider){
+    provider.reviewsCount = reviews.filter(r => r.providerId === providerId).length;
+    // Recalculate average rating
+    const providerReviews = reviews.filter(r => r.providerId === providerId);
+    const totalRating = providerReviews.reduce((sum, r) => sum + r.rating, 0);
+    provider.rating = Math.round((totalRating / providerReviews.length) * 10) / 10;
+    save(STORAGE_KEYS.PROVIDERS, providers);
+  }
+  
+  renderProfile();
+}
+
+function deleteReview(reviewId){
+  if(!confirm('Are you sure you want to delete this review?')) return;
+  
+  const session = getSession();
+  if(!session){ alert('Please sign in.'); return; }
+  
+  const reviews = load(STORAGE_KEYS.REVIEWS, []);
+  const reviewIndex = reviews.findIndex(r => r.id === reviewId);
+  
+  if(reviewIndex === -1){ alert('Review not found.'); return; }
+  
+  const review = reviews[reviewIndex];
+  if(review.user !== session.name){ alert('You can only delete your own reviews.'); return; }
+  
+  reviews.splice(reviewIndex, 1);
+  save(STORAGE_KEYS.REVIEWS, reviews);
+  
+  // Update provider's review count
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const provider = providers.find(p => p.id === review.providerId);
+  if(provider){
+    provider.reviewsCount = Math.max(0, provider.reviewsCount - 1);
+    // Recalculate average rating
+    const providerReviews = reviews.filter(r => r.providerId === review.providerId);
+    if(providerReviews.length > 0){
+      const totalRating = providerReviews.reduce((sum, r) => sum + r.rating, 0);
+      provider.rating = Math.round((totalRating / providerReviews.length) * 10) / 10;
+    } else {
+      provider.rating = 5.0; // Default rating for new providers
+    }
+    save(STORAGE_KEYS.PROVIDERS, providers);
+  }
+  
   renderProfile();
 }
 
@@ -2121,6 +2816,12 @@ function submitSupportRequest(){
   
   if(!email || !message){
     alert('Please fill in all fields.');
+    return;
+  }
+  
+  // Validate crimson email
+  if(!email.endsWith('@crimson.ua.edu')){
+    alert('Please use your Crimson email address (@crimson.ua.edu).');
     return;
   }
   
@@ -2583,6 +3284,112 @@ function previewProfilePicture(input) {
 
 // Global variable to store the uploaded profile picture data
 let uploadedProfilePicture = null;
+
+// Global variable to store uploaded work photos
+let uploadedWorkPhotos = [];
+
+// Global variable to track portfolio slideshow state
+let currentPortfolioSlide = 0;
+let totalPortfolioSlides = 0;
+
+// Preview function for work photos
+function previewWorkPhoto(input, photoNumber) {
+  const file = input.files[0];
+  if (file) {
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      input.value = '';
+      return;
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file');
+      input.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // Store the image data
+      uploadedWorkPhotos[photoNumber - 1] = e.target.result;
+      
+      // Update the preview container
+      const container = document.getElementById('workPhotosContainer');
+      const existingPreview = document.getElementById(`workPhotoPreview${photoNumber}`);
+      
+      if (existingPreview) {
+        existingPreview.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />`;
+      } else {
+        const previewDiv = document.createElement('div');
+        previewDiv.id = `workPhotoPreview${photoNumber}`;
+        previewDiv.style.cssText = 'width:120px;height:120px;border:2px solid #e3e5e9;border-radius:8px;overflow:hidden;position:relative';
+        previewDiv.innerHTML = `
+          <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover" />
+          <button onclick="removeWorkPhoto(${photoNumber})" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:white;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:12px">×</button>
+        `;
+        container.appendChild(previewDiv);
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+// Function to remove work photo
+function removeWorkPhoto(photoNumber) {
+  uploadedWorkPhotos[photoNumber - 1] = null;
+  const input = document.getElementById(`workPhoto${photoNumber}`);
+  if (input) input.value = '';
+  const preview = document.getElementById(`workPhotoPreview${photoNumber}`);
+  if (preview) preview.remove();
+}
+
+// Portfolio slideshow functions
+function changePortfolioSlide(direction) {
+  const slides = document.querySelectorAll('[id^="portfolioSlide"]');
+  if (slides.length === 0) return;
+  
+  // Hide current slide
+  slides[currentPortfolioSlide].style.opacity = '0';
+  
+  // Calculate new slide index
+  currentPortfolioSlide += direction;
+  if (currentPortfolioSlide >= slides.length) {
+    currentPortfolioSlide = 0;
+  } else if (currentPortfolioSlide < 0) {
+    currentPortfolioSlide = slides.length - 1;
+  }
+  
+  // Show new slide
+  slides[currentPortfolioSlide].style.opacity = '1';
+  
+  // Update counter
+  const counter = document.getElementById('portfolioCounter');
+  if (counter) {
+    counter.textContent = `${currentPortfolioSlide + 1} / ${slides.length}`;
+  }
+}
+
+// Initialize portfolio slideshow when profile is rendered
+function initPortfolioSlideshow() {
+  const slides = document.querySelectorAll('[id^="portfolioSlide"]');
+  totalPortfolioSlides = slides.length;
+  currentPortfolioSlide = 0;
+  
+  if (slides.length > 0) {
+    // Ensure first slide is visible
+    slides.forEach((slide, index) => {
+      slide.style.opacity = index === 0 ? '1' : '0';
+    });
+    
+    // Update counter
+    const counter = document.getElementById('portfolioCounter');
+    if (counter) {
+      counter.textContent = `1 / ${slides.length}`;
+    }
+  }
+}
 
 // Preview function for create profile form
 function previewCreateProfilePicture(input) {

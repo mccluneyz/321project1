@@ -22,6 +22,7 @@
             </div>
             <nav class="tt-nav">
                 <button data-route="#home" class="tt-nav__link is-active">Home</button>
+                <button data-route="#about" class="tt-nav__link">About</button>
                 <button data-route="#choose-service" class="tt-nav__link">Find</button>
                 <button data-route="#messages" class="tt-nav__link">Messages</button>
                 <button data-route="#support" class="tt-nav__link">Support</button>
@@ -44,6 +45,7 @@
         <div class="tt-footer__inner">
             <div>© <span id="year"></span> Tide Together</div>
             <div class="tt-footer__links">
+                <a href="#about">About</a>
                 <a href="#support">Contact Support</a>
                 <a href="#privacy">Privacy</a>
                 <a href="#terms">Terms</a>
@@ -84,11 +86,21 @@
                 <input id="bookingDate" type="date" required />
             </div>
             <div class="tt-field">
+                <label for="bookingTime">Time</label>
+                <input id="bookingTime" type="time" required />
+            </div>
+            <div class="tt-field">
                 <label for="bookingNote">Notes</label>
                 <textarea id="bookingNote" placeholder="Any helpful details..." rows="3"></textarea>
             </div>
+            <div class="tt-field">
+                <label>
+                    <input type="checkbox" id="bookingReminder" style="margin-right: 8px;" />
+                    Set reminder for this booking
+                </label>
+            </div>
             <div class="tt-actions">
-                <button value="cancel" class="tt-button tt-button--ghost">Cancel</button>
+                <button type="button" onclick="closeBookingDialog()" class="tt-button tt-button--ghost">Cancel</button>
                 <button id="bookingSubmit" value="default" class="tt-button">Request Booking</button>
             </div>
         </form>
