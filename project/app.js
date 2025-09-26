@@ -541,10 +541,18 @@ function renderBrowse(){
       <div style="max-width:1200px;margin:0 auto;padding:40px 20px;">
         <div style="background:white;padding:32px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-bottom:32px">
           <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
-            <input id="q" placeholder="🔍 Search services, providers..." value="${q}" oninput="onSearch(this.value)" 
-                   style="flex:1;min-width:300px;padding:16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;transition:border-color 0.2s;"
-                   onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'"
-                   onkeydown="if(event.key==='Backspace' && this.selectionStart === 0 && this.selectionEnd === this.value.length) { this.value=''; onSearch(''); event.preventDefault(); }" />
+            <div style="flex:1;min-width:300px;position:relative;display:flex;align-items:center;">
+              <input id="q" placeholder="🔍 Search services, providers..." value="${q}" oninput="onSearch(this.value)" 
+                     style="flex:1;padding:16px 60px 16px 16px;border:2px solid #e3e5e9;border-radius:12px;font-size:16px;transition:border-color 0.2s;"
+                     onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'"
+                     onkeydown="if(event.key==='Backspace' && this.selectionStart === 0 && this.selectionEnd === this.value.length) { this.value=''; onSearch(''); event.preventDefault(); } if(event.key==='Enter') { onSearch(this.value); }" />
+              <button onclick="onSearch(document.getElementById('q').value)" 
+                      style="position:absolute;right:8px;background:var(--crimson);color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;"
+                      onmouseover="this.style.background='var(--crimson-600)'" onmouseout="this.style.background='var(--crimson)'"
+                      title="Search">
+                🔍
+              </button>
+            </div>
           </div>
           
           <div style="margin-bottom:20px">
@@ -761,30 +769,24 @@ function renderProfile(){
           <!-- Portfolio Gallery -->
           <div style="background:white;padding:32px;border-radius:16px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
             <h2 style="margin:0 0 20px;font-size:24px;color:var(--ink)">📸 Portfolio</h2>
-            <div id="portfolioSlideshow" style="position:relative;max-width:600px;margin:0 auto;">
-              <div id="portfolioContainer" style="position:relative;height:300px;border-radius:12px;overflow:hidden;background:#f0f0f0;">
-                ${(p.portfolio.length? p.portfolio : [
-                  'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
-                  'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
-                ).map((src, index) => `
-                  <div id="portfolioSlide${index}" style="position:absolute;top:0;left:0;width:100%;height:100%;background-image:url(${src});background-size:cover;background-position:center;opacity:${index === 0 ? 1 : 0};transition:opacity 0.5s ease-in-out;cursor:pointer;" onclick="window.open('${src}', '_blank')"></div>
+            ${p.portfolio.length > 0 ? `
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+                ${p.portfolio.map((src, index) => `
+                  <div style="aspect-ratio:1;border-radius:12px;overflow:hidden;background:#f0f0f0;cursor:pointer;transition:transform 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.1);" 
+                       onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"
+                       onclick="window.open('${src}', '_blank')">
+                    <img src="${src}" alt="Portfolio image ${index + 1}" 
+                         style="width:100%;height:100%;object-fit:cover;display:block;" 
+                         onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;color:#999;font-size:14px\\'>Image not available</div>'" />
+                  </div>
                 `).join('')}
               </div>
-              ${(p.portfolio.length? p.portfolio : [
-                'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
-                'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
-              ).length > 1 ? `
-                <button id="portfolioPrev" onclick="changePortfolioSlide(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">‹</button>
-                <button id="portfolioNext" onclick="changePortfolioSlide(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.7);color:white;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.9)'" onmouseout="this.style.background='rgba(0,0,0,0.7)'">›</button>
-                <div style="text-align:center;margin-top:16px;">
-                  <span id="portfolioCounter" style="background:rgba(0,0,0,0.7);color:white;padding:6px 12px;border-radius:20px;font-size:14px;">1 / ${(p.portfolio.length? p.portfolio : [
-                    'https://images.unsplash.com/photo-1556228578-8fb87677aa6a?q=80&w=1200&auto=format&fit=crop',
-                    'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1200&auto=format&fit=crop']
-                  ).length}</span>
-                </div>
-              ` : ''}
-            </div>
-            ${p.portfolio.length === 0 ? '<p style="text-align:center;color:var(--ink-300);margin:20px 0">No portfolio images available</p>' : ''}
+            ` : `
+              <div style="text-align:center;padding:40px;color:var(--ink-300);">
+                <div style="font-size:48px;margin-bottom:16px;">📷</div>
+                <p style="margin:0;font-size:16px;">No portfolio images available</p>
+              </div>
+            `}
           </div>
           
           <!-- Reviews Section -->
@@ -834,9 +836,6 @@ function renderProfile(){
       </div>
     </div>
   `);
-  
-  // Initialize portfolio slideshow after rendering
-  setTimeout(initPortfolioSlideshow, 100);
 }
 
 // Global variable to track selected conversation
@@ -2440,20 +2439,30 @@ function renderServiceCalendar(){
 }
 
 // Interactions
-let searchTimeout;
 function onSearch(v){
-  // Clear existing timeout
-  if(searchTimeout) clearTimeout(searchTimeout);
-  
   // Update URL immediately for better UX
   const url = new URL(location.href);
   url.searchParams.set('q', v);
   history.replaceState(null, '', url.toString());
   
-  // Debounce the actual search to prevent excessive re-rendering
-  searchTimeout = setTimeout(() => {
-    renderBrowse();
-  }, 300); // 300ms delay
+  // Store cursor position and focus state
+  const activeElement = document.activeElement;
+  const isSearchInputFocused = activeElement && activeElement.id === 'q';
+  const cursorPosition = isSearchInputFocused ? activeElement.selectionStart : 0;
+  
+  // Update search results immediately for real-time search
+  renderBrowse();
+  
+  // Restore focus and cursor position after re-render
+  if (isSearchInputFocused) {
+    setTimeout(() => {
+      const searchInput = document.getElementById('q');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
+  }
 }
 
 function sortBy(kind){
