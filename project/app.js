@@ -17,6 +17,20 @@ const SERVICES = [
   'Esthetician','Tutor','Barber','Hairstylist','Joyride','Maintenance','Photography','Laundry','Cleaning','Pet Care'
 ];
 
+// Service default images mapping
+const SERVICE_DEFAULT_IMAGES = {
+  'Esthetician': 'https://images.unsplash.com/photo-1519014816548-bf5fe059798b?q=80&w=1200&auto=format&fit=crop',
+  'Tutor': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&auto=format&fit=crop',
+  'Barber': 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop',
+  'Hairstylist': 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1200&auto=format&fit=crop',
+  'Joyride': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop',
+  'Maintenance': 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?q=80&w=1200&auto=format&fit=crop',
+  'Photography': 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?q=80&w=1200&auto=format&fit=crop',
+  'Laundry': 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?q=80&w=1200&auto=format&fit=crop',
+  'Cleaning': 'https://images.unsplash.com/photo-1581578731548-c6a0c3f2f6c5?q=80&w=1200&auto=format&fit=crop',
+  'Pet Care': 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=1200&auto=format&fit=crop'
+};
+
 function getTodayISO(){
   const d = new Date();
   const tz = new Date(d.getTime() - d.getTimezoneOffset()*60000);
@@ -461,7 +475,7 @@ function renderHome(){
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px">
           ${top.map(p => h`
             <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-              <div style="height:200px;background-image:url('${p.portfolio[0] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop'}');background-size:cover;background-position:center;position:relative;">
+              <div style="height:200px;background-image:url('${getServiceDefaultImage(p.services)}');background-size:cover;background-position:center;position:relative;">
                 <div style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:20px;font-weight:600;color:var(--ink)">
                   ⭐ ${p.rating}
                 </div>
@@ -580,7 +594,7 @@ function renderBrowse(){
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px" id="results">
           ${filtered.map(p => h`
             <div style="background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.1);transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-              <div style="height:200px;background-image:url('${p.portfolio[0] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop'}');background-size:cover;background-position:center;position:relative;">
+              <div style="height:200px;background-image:url('${getServiceDefaultImage(p.services)}');background-size:cover;background-position:center;position:relative;">
                 <div style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.9);padding:8px 12px;border-radius:20px;font-weight:600;color:var(--ink)">
                   ⭐ ${p.rating}
                 </div>
@@ -608,8 +622,15 @@ function renderBrowse(){
   `);
 }
 
+function getServiceDefaultImage(services) {
+  // Return the default image for the first service, or a fallback
+  const firstService = services && services[0];
+  return SERVICE_DEFAULT_IMAGES[firstService] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop';
+}
+
 function cardForProvider(p){
-  const media = p.portfolio[0] || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200&auto=format&fit=crop';
+  // Use service default image instead of portfolio image
+  const media = getServiceDefaultImage(p.services);
   return h`
     <article class="tt-card">
       <div class="tt-card__media" style="background-image:url('${media}')"></div>
@@ -1546,7 +1567,7 @@ function renderMyBookings(){
                   <div style="display:flex;gap:16px;margin-bottom:8px;flex-wrap:wrap">
                     <span style="color:var(--ink-600);font-size:14px"><strong>From:</strong> ${booking.userName}</span>
                     <span style="color:var(--ink-600);font-size:14px"><strong>Date:</strong> ${new Date(booking.date).toLocaleDateString()}</span>
-                    ${booking.time ? `<span style="color:var(--ink-600);font-size:14px"><strong>Time:</strong> ${booking.time}</span>` : ''}
+                    ${booking.time ? `<span style="color:var(--ink-600);font-size:14px"><strong>Time:</strong> ${booking.time} (${booking.durationMinutes || 60} min)</span>` : ''}
                     <span style="color:var(--ink-600);font-size:14px"><strong>Requested:</strong> ${new Date(booking.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -2502,9 +2523,16 @@ function openBooking(providerId){
   // Show booking modal/dialog
   const bookingDialog = document.getElementById('bookingDialog');
   if(bookingDialog){
+    // Clear all form fields
+    document.getElementById('bookingService').selectedIndex = 0;
+    document.getElementById('bookingDate').value = '';
+    document.getElementById('bookingTime').value = '';
+    document.getElementById('bookingNote').value = '';
+    document.getElementById('bookingReminder').checked = false;
+    
     document.getElementById('bookingProvider').textContent = `Book with ${provider.name}`;
     const serviceSelect = document.getElementById('bookingService');
-    serviceSelect.innerHTML = provider.services.map(s => `<option value="${s}">${s}</option>`).join('');
+    serviceSelect.innerHTML = `<option value="">Select a service...</option>` + provider.services.map(s => `<option value="${s}">${s}</option>`).join('');
     
     // Set date limits
     const dateInput = document.getElementById('bookingDate');
@@ -2514,6 +2542,13 @@ function openBooking(providerId){
     dateInput.min = today.toISOString().split('T')[0];
     dateInput.max = maxDate.toISOString().split('T')[0];
     
+    // Remove any existing event listeners and add new one to update available time slots when date changes
+    dateInput.removeEventListener('change', updateTimeSlotsOnDateChange);
+    dateInput.addEventListener('change', updateTimeSlotsOnDateChange);
+    
+    // Store provider ID for the event handler
+    dateInput.dataset.providerId = provider.id;
+    
     bookingDialog.showModal();
   } else {
     // Fallback to direct message
@@ -2521,9 +2556,66 @@ function openBooking(providerId){
   }
 }
 
+// Event handler for date change
+function updateTimeSlotsOnDateChange() {
+  const providerId = this.dataset.providerId;
+  const date = this.value;
+  updateAvailableTimeSlots(providerId, date);
+}
+
+// Function to update available time slots based on selected date
+function updateAvailableTimeSlots(providerId, date) {
+  const timeInput = document.getElementById('bookingTime');
+  if (!date) {
+    timeInput.innerHTML = '<option value="">Select a date first</option>';
+    return;
+  }
+  
+  const availableSlots = getAvailableTimeSlots(providerId, date);
+  timeInput.innerHTML = availableSlots.length > 0 
+    ? '<option value="">Select a time...</option>' + availableSlots.map(slot => `<option value="${slot}">${slot}</option>`).join('')
+    : '<option value="">No available time slots for this date</option>';
+}
+
 function closeBookingDialog(){
   // Close dialog without validation
   document.getElementById('bookingDialog').close();
+}
+
+// Helper function to check if a time slot is available
+function isTimeSlotAvailable(providerId, date, time, durationMinutes = 60) {
+  const bookings = load(STORAGE_KEYS.BOOKINGS, []);
+  const startTime = new Date(`${date}T${time}`);
+  const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+  
+  return !bookings.some(booking => {
+    if (booking.providerId !== providerId || booking.date !== date || booking.status === 'cancelled') {
+      return false;
+    }
+    
+    const bookingStart = new Date(`${booking.date}T${booking.time}`);
+    const bookingEnd = new Date(bookingStart.getTime() + (booking.durationMinutes || 60) * 60000);
+    
+    // Check for overlap
+    return (startTime < bookingEnd && endTime > bookingStart);
+  });
+}
+
+// Helper function to get available time slots for a provider on a given date
+function getAvailableTimeSlots(providerId, date) {
+  const availableSlots = [];
+  const startHour = 8; // 8 AM
+  const endHour = 20; // 8 PM
+  const durationMinutes = 60; // 1 hour duration
+  
+  for (let hour = startHour; hour < endHour; hour++) {
+    const timeString = `${hour.toString().padStart(2, '0')}:00`;
+    if (isTimeSlotAvailable(providerId, date, timeString, durationMinutes)) {
+      availableSlots.push(timeString);
+    }
+  }
+  
+  return availableSlots;
 }
 
 function submitBooking(){
@@ -2542,7 +2634,13 @@ function submitBooking(){
   const provider = providers.find(p => p.services.includes(service));
   if(!provider){ alert('Provider not found.'); return; }
   
-  // Create booking request
+  // Check if time slot is available
+  if (!isTimeSlotAvailable(provider.id, date, time)) {
+    alert('This time slot is no longer available. Please select a different time.');
+    return;
+  }
+  
+  // Create booking request with duration
   const bookings = load(STORAGE_KEYS.BOOKINGS, []);
   const booking = {
     id: `b_${Date.now()}`,
@@ -2553,6 +2651,7 @@ function submitBooking(){
     service: service,
     date: date,
     time: time,
+    durationMinutes: 60, // 1 hour duration
     note: note,
     reminder: reminder,
     status: 'pending',
