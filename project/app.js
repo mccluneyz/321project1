@@ -333,6 +333,7 @@ function gateIfNeeded(targetHash){
       console.log('- s.profile.services exists:', !!s.profile?.services);
       console.log('- s.profile.services is array:', Array.isArray(s.profile?.services));
       console.log('- s.profile.services length:', s.profile?.services?.length);
+      console.log('- s.profile.services content:', s.profile?.services);
       return '#create-profile';
     }
   }
@@ -1826,54 +1827,35 @@ function submitAuthPage(){
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
-  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
-    // User has a complete profile - load it into session
-    const profile = {
-      firstName: existingProvider.firstName || '',
-      lastName: existingProvider.lastName || '',
-      fullName: existingProvider.name,
-      services: existingProvider.services,
-      availability: existingProvider.availability || [],
-      bio: existingProvider.bio || '',
-      licenses: existingProvider.licenses || [],
-      certifications: existingProvider.certifications || [],
-      portfolio: existingProvider.portfolio || [],
-      socials: existingProvider.socials || {}
-    };
-    
-    console.log('Loading existing profile for user:', userId);
-    console.log('Profile data:', profile);
-    
-    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
-    console.log('Navigating to #home');
-    setTimeout(() => navigate('#home'), 10);
-  } else {
-    // User needs to create/complete profile
-    if(!existingProvider){
-      providers.push({ 
-        id: userId, 
-        name: name, 
-        services: ['New User'], 
-        rating: 5.0, 
-        reviewsCount: 0, 
-        distanceMiles: 0.5, 
-        bio: 'New user - profile setup pending', 
-        licenses: [], 
-        certifications: [], 
-        portfolio: [], 
-        socials: {}, 
-        availability: [], 
-        campus: 'UA',
-        cwid: cwid,
-        email: email
-      });
-      save(STORAGE_KEYS.PROVIDERS, providers);
-    }
-    
-    setSession({ id: userId, cwid, email, name, profile: null });
-    console.log('Navigating to #create-profile');
-    setTimeout(() => navigate('#create-profile'), 10);
+  // Check if CWID has already been used to create a profile
+  if(existingProvider){
+    alert('This CWID has already been used to create a profile. Please contact support if you believe this is an error.');
+    return;
   }
+  
+  // Create new user profile
+  providers.push({ 
+    id: userId, 
+    name: name, 
+    services: ['New User'], 
+    rating: 5.0, 
+    reviewsCount: 0, 
+    distanceMiles: 0.5, 
+    bio: 'New user - profile setup pending', 
+    licenses: [], 
+    certifications: [], 
+    portfolio: [], 
+    socials: {}, 
+    availability: [], 
+    campus: 'UA',
+    cwid: cwid,
+    email: email
+  });
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  setSession({ id: userId, cwid, email, name, profile: null });
+  console.log('Navigating to #create-profile');
+  setTimeout(() => navigate('#create-profile'), 10);
 }
 
 // Enhanced Create Profile with comprehensive details
@@ -1974,9 +1956,13 @@ function renderCreateProfile(){
                 </div>
                 <div>
                   <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">LinkedIn</label>
-                  <input id="linkedin_page" placeholder="your-linkedin-profile" 
-                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
-                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                  <div style="display:flex;align-items:center;border:2px solid #e3e5e9;border-radius:8px;transition:border-color 0.2s;" id="linkedin-wrapper">
+                    <span style="padding:12px 8px 12px 12px;color:#999;font-size:14px;background:#f8f9fa;border-right:1px solid #e3e5e9;border-radius:6px 0 0 6px;">www.linkedin.com/in/</span>
+                    <input id="linkedin_page" placeholder="your-linkedin-profile" 
+                           style="flex:1;padding:12px;border:none;border-radius:0 6px 6px 0;font-size:14px;outline:none;"
+                           onfocus="document.getElementById('linkedin-wrapper').style.borderColor='var(--crimson)'" 
+                           onblur="document.getElementById('linkedin-wrapper').style.borderColor='#e3e5e9'" />
+                  </div>
                 </div>
               </div>
               <div style="margin-top:16px">
@@ -2089,6 +2075,11 @@ function submitProfileCreate(){
   const nextSession = { ...s, name: fullName, profile };
   setSession(nextSession);
   
+  console.log('Session updated after profile creation:');
+  console.log('- nextSession:', nextSession);
+  console.log('- profile.services:', nextSession.profile?.services);
+  console.log('- services length:', nextSession.profile?.services?.length);
+  
   // Update or add to PROVIDERS list
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === s.id);
@@ -2137,7 +2128,7 @@ function submitProfileCreate(){
   console.log('Provider services after save:', existingProvider?.services || 'New provider');
   
   alert('Profile created successfully! Welcome to Tide Together! 🎉');
-  location.hash = '#home';
+  navigate('#home');
 }
 
 function renderEditProfile(){
@@ -2251,9 +2242,13 @@ function renderEditProfile(){
                 </div>
                 <div>
                   <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--ink)">LinkedIn</label>
-                  <input id="editLinkedin" placeholder="your-linkedin-profile" value="${currentProvider.socials?.linkedin || ''}" 
-                         style="width:100%;padding:12px;border:2px solid #e3e5e9;border-radius:8px;font-size:14px;transition:border-color 0.2s;"
-                         onfocus="this.style.borderColor='var(--crimson)'" onblur="this.style.borderColor='#e3e5e9'" />
+                  <div style="display:flex;align-items:center;border:2px solid #e3e5e9;border-radius:8px;transition:border-color 0.2s;" id="edit-linkedin-wrapper">
+                    <span style="padding:12px 8px 12px 12px;color:#999;font-size:14px;background:#f8f9fa;border-right:1px solid #e3e5e9;border-radius:6px 0 0 6px;">www.linkedin.com/in/</span>
+                    <input id="editLinkedin" placeholder="your-linkedin-profile" value="${currentProvider.socials?.linkedin || ''}" 
+                           style="flex:1;padding:12px;border:none;border-radius:0 6px 6px 0;font-size:14px;outline:none;"
+                           onfocus="document.getElementById('edit-linkedin-wrapper').style.borderColor='var(--crimson)'" 
+                           onblur="document.getElementById('edit-linkedin-wrapper').style.borderColor='#e3e5e9'" />
+                  </div>
                 </div>
               </div>
               <div style="margin-top:16px">
@@ -3244,53 +3239,36 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
-  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
-    // User has a complete profile - load it into session
-    const profile = {
-      firstName: existingProvider.firstName || '',
-      lastName: existingProvider.lastName || '',
-      fullName: existingProvider.name,
-      services: existingProvider.services,
-      availability: existingProvider.availability || [],
-      bio: existingProvider.bio || '',
-      licenses: existingProvider.licenses || [],
-      certifications: existingProvider.certifications || [],
-      portfolio: existingProvider.portfolio || [],
-      socials: existingProvider.socials || {}
-    };
-    
-    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
-    document.getElementById('authDialog').close();
-    console.log('Dialog auth: Navigating to #home');
-    navigate('#home');
-  } else {
-    // User needs to create/complete profile
-    if(!existingProvider){
-      providers.push({ 
-        id: userId, 
-        name: name, 
-        services: ['New User'], 
-        rating: 5.0, 
-        reviewsCount: 0, 
-        distanceMiles: 0.5, 
-        bio: 'New user - profile setup pending', 
-        licenses: [], 
-        certifications: [], 
-        portfolio: [], 
-        socials: {}, 
-        availability: [], 
-        campus: 'UA',
-        cwid: cwid,
-        email: email
-      });
-      save(STORAGE_KEYS.PROVIDERS, providers);
-    }
-    
-    setSession({ id: userId, cwid, email, name, profile: null });
-    document.getElementById('authDialog').close();
-    console.log('Dialog auth: Navigating to #create-profile');
-    navigate('#create-profile');
+  // Check if CWID has already been used to create a profile
+  if(existingProvider){
+    alert('This CWID has already been used to create a profile. Please contact support if you believe this is an error.');
+    return;
   }
+  
+  // Create new user profile
+  providers.push({ 
+    id: userId, 
+    name: name, 
+    services: ['New User'], 
+    rating: 5.0, 
+    reviewsCount: 0, 
+    distanceMiles: 0.5, 
+    bio: 'New user - profile setup pending', 
+    licenses: [], 
+    certifications: [], 
+    portfolio: [], 
+    socials: {}, 
+    availability: [], 
+    campus: 'UA',
+    cwid: cwid,
+    email: email
+  });
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  setSession({ id: userId, cwid, email, name, profile: null });
+  document.getElementById('authDialog').close();
+  console.log('Dialog auth: Navigating to #create-profile');
+  navigate('#create-profile');
 });
 
 // Booking dialog event listener
