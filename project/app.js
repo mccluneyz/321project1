@@ -1827,35 +1827,57 @@ function submitAuthPage(){
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
-  // Check if CWID has already been used to create a profile
-  if(existingProvider){
-    alert('This CWID has already been used to create a profile. Please contact support if you believe this is an error.');
-    return;
+  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
+    // User has a complete profile - load it into session
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    console.log('Loading existing profile for user:', userId);
+    console.log('Profile data:', profile);
+    
+    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
+    console.log('Navigating to #home');
+    setTimeout(() => navigate('#home'), 10);
+  } else if(existingProvider && existingProvider.services && existingProvider.services.includes('New User')){
+    // User exists but has incomplete profile - redirect to profile creation
+    setSession({ id: userId, cwid, email, name, profile: null });
+    console.log('Navigating to #create-profile');
+    setTimeout(() => navigate('#create-profile'), 10);
+  } else {
+    // New user - create initial profile entry
+    providers.push({ 
+      id: userId, 
+      name: name, 
+      services: ['New User'], 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: 0.5, 
+      bio: 'New user - profile setup pending', 
+      licenses: [], 
+      certifications: [], 
+      portfolio: [], 
+      socials: {}, 
+      availability: [], 
+      campus: 'UA',
+      cwid: cwid,
+      email: email
+    });
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    
+    setSession({ id: userId, cwid, email, name, profile: null });
+    console.log('Navigating to #create-profile');
+    setTimeout(() => navigate('#create-profile'), 10);
   }
-  
-  // Create new user profile
-  providers.push({ 
-    id: userId, 
-    name: name, 
-    services: ['New User'], 
-    rating: 5.0, 
-    reviewsCount: 0, 
-    distanceMiles: 0.5, 
-    bio: 'New user - profile setup pending', 
-    licenses: [], 
-    certifications: [], 
-    portfolio: [], 
-    socials: {}, 
-    availability: [], 
-    campus: 'UA',
-    cwid: cwid,
-    email: email
-  });
-  save(STORAGE_KEYS.PROVIDERS, providers);
-  
-  setSession({ id: userId, cwid, email, name, profile: null });
-  console.log('Navigating to #create-profile');
-  setTimeout(() => navigate('#create-profile'), 10);
 }
 
 // Enhanced Create Profile with comprehensive details
@@ -3239,36 +3261,57 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
-  // Check if CWID has already been used to create a profile
-  if(existingProvider){
-    alert('This CWID has already been used to create a profile. Please contact support if you believe this is an error.');
-    return;
+  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
+    // User has a complete profile - load it into session
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    setSession({ id: userId, cwid, email, name: existingProvider.name, profile });
+    document.getElementById('authDialog').close();
+    console.log('Dialog auth: Navigating to #home');
+    navigate('#home');
+  } else if(existingProvider && existingProvider.services && existingProvider.services.includes('New User')){
+    // User exists but has incomplete profile - redirect to profile creation
+    setSession({ id: userId, cwid, email, name, profile: null });
+    document.getElementById('authDialog').close();
+    console.log('Dialog auth: Navigating to #create-profile');
+    navigate('#create-profile');
+  } else {
+    // New user - create initial profile entry
+    providers.push({ 
+      id: userId, 
+      name: name, 
+      services: ['New User'], 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: 0.5, 
+      bio: 'New user - profile setup pending', 
+      licenses: [], 
+      certifications: [], 
+      portfolio: [], 
+      socials: {}, 
+      availability: [], 
+      campus: 'UA',
+      cwid: cwid,
+      email: email
+    });
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    
+    setSession({ id: userId, cwid, email, name, profile: null });
+    document.getElementById('authDialog').close();
+    console.log('Dialog auth: Navigating to #create-profile');
+    navigate('#create-profile');
   }
-  
-  // Create new user profile
-  providers.push({ 
-    id: userId, 
-    name: name, 
-    services: ['New User'], 
-    rating: 5.0, 
-    reviewsCount: 0, 
-    distanceMiles: 0.5, 
-    bio: 'New user - profile setup pending', 
-    licenses: [], 
-    certifications: [], 
-    portfolio: [], 
-    socials: {}, 
-    availability: [], 
-    campus: 'UA',
-    cwid: cwid,
-    email: email
-  });
-  save(STORAGE_KEYS.PROVIDERS, providers);
-  
-  setSession({ id: userId, cwid, email, name, profile: null });
-  document.getElementById('authDialog').close();
-  console.log('Dialog auth: Navigating to #create-profile');
-  navigate('#create-profile');
 });
 
 // Booking dialog event listener
