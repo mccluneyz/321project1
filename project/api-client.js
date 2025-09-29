@@ -176,24 +176,5 @@ class APIClient {
 // Create global API client instance
 window.api = new APIClient();
 
-// Helper functions to replace localStorage functions
-window.getSession = function() {
-  return window.api.getCurrentUser();
-};
-
-window.setSession = function(user) {
-  // Session is managed by the API client
-  return user;
-};
-
-// Replace localStorage load/save functions
-window.load = function(key, defaultValue = []) {
-  // This will be replaced by API calls in the updated app.js
-  console.warn('load() function called - should use API instead');
-  return defaultValue;
-};
-
-window.save = function(key, data) {
-  // This will be replaced by API calls in the updated app.js
-  console.warn('save() function called - should use API instead');
-};
+// Note: Session management is handled by app.js using localStorage
+// These functions are not overridden to maintain compatibility with existing localStorage-based session management

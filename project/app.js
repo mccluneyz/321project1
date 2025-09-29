@@ -326,7 +326,7 @@ function gateIfNeeded(targetHash){
     console.log('- s.profile.services:', s.profile?.services);
     console.log('- services length:', s.profile?.services?.length);
     
-    if(targetHash !== '#create-profile' && (!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0)){
+    if(targetHash !== '#create-profile' && (!s.profile || !Array.isArray(s.profile.services) || s.profile.services.length === 0 || s.profile.services.includes('New User'))){
       console.log('Profile incomplete, redirecting to create-profile');
       console.log('Profile check details:');
       console.log('- s.profile exists:', !!s.profile);
@@ -342,25 +342,160 @@ function gateIfNeeded(targetHash){
 }
 
 // Auth
-function getSession(){ return load(STORAGE_KEYS.SESSION, null); }
-function setSession(session){ save(STORAGE_KEYS.SESSION, session); updateAuthUI(); }
+function getSession(){ 
+  // Only use tab-specific session, no fallback to global
+  const tabSession = load(STORAGE_KEYS.SESSION + '_tab_' + getTabId(), null);
+  return tabSession;
+}
+
+function setSession(session){ 
+  // Only save to tab-specific session
+  const tabId = getTabId();
+  save(STORAGE_KEYS.SESSION + '_tab_' + tabId, session);
+  updateAuthUI(); 
+}
+
+// Generate a unique tab ID
+function getTabId() {
+  let tabId = sessionStorage.getItem('tt_tab_id');
+  if (!tabId) {
+    tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    sessionStorage.setItem('tt_tab_id', tabId);
+  }
+  return tabId;
+}
 
 function validateSession(){
   const session = getSession();
-  if(!session) return false;
-  
-  // Check if the user still exists in providers
-  const providers = load(STORAGE_KEYS.PROVIDERS, []);
-  const userProvider = providers.find(p => p.id === session.id);
-  
-  if(!userProvider) {
-    console.log('Session user not found in providers, clearing session');
-    setSession(null);
+  console.log('validateSession - session:', session);
+  if(!session) {
+    console.log('validateSession - no session found');
     return false;
   }
   
+  // Check if the user still exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('validateSession - providers count:', providers.length);
+  console.log('validateSession - looking for user ID:', session.id);
+  console.log('validateSession - available provider IDs:', providers.map(p => p.id));
+  
+  const userProvider = providers.find(p => p.id === session.id);
+  console.log('validateSession - userProvider found:', !!userProvider);
+  
+  if(!userProvider) {
+    console.log('Session user not found in providers - attempting to fix this');
+    
+    // If user has a complete profile in session, sync it to providers
+    if (session.profile && session.profile.services && !session.profile.services.includes('New User')) {
+      console.log('User has complete profile in session - syncing to providers');
+      const syncedUser = {
+        id: session.id,
+        name: session.profile.fullName || session.name,
+        firstName: session.profile.firstName,
+        lastName: session.profile.lastName,
+        services: session.profile.services,
+        rating: 5.0,
+        reviewsCount: 0,
+        distanceMiles: Math.random() * 2 + 0.5,
+        bio: session.profile.bio,
+        licenses: session.profile.licenses,
+        certifications: session.profile.certifications,
+        portfolio: session.profile.portfolio,
+        socials: session.profile.socials,
+        availability: session.profile.availability,
+        campus: 'UA',
+        cwid: session.cwid,
+        email: session.email
+      };
+      
+      providers.push(syncedUser);
+      save(STORAGE_KEYS.PROVIDERS, providers);
+      console.log('User profile synced to providers list:', syncedUser);
+    } else {
+      // Try to fix the session by adding the user to providers as new user
+      console.log('Adding missing user to providers list');
+      const newUser = {
+        id: session.id,
+        name: session.name,
+        services: ['New User'],
+        rating: 5.0,
+        reviewsCount: 0,
+        distanceMiles: 0.5,
+        bio: 'New user - profile setup pending',
+        licenses: [],
+        certifications: [],
+        portfolio: [],
+        socials: {},
+        availability: [],
+        campus: 'UA',
+        cwid: session.cwid,
+        email: session.email
+      };
+      
+      providers.push(newUser);
+      save(STORAGE_KEYS.PROVIDERS, providers);
+      console.log('User added to providers list:', newUser);
+    }
+    
+    // Now check again
+    const updatedProviders = load(STORAGE_KEYS.PROVIDERS, []);
+    const updatedUserProvider = updatedProviders.find(p => p.id === session.id);
+    console.log('validateSession - userProvider found after fix:', !!updatedUserProvider);
+    
+    if (!updatedUserProvider) {
+      console.log('Failed to add user to providers - clearing session');
+      setSession(null);
+      return false;
+    }
+  } else if (session.profile && session.profile.services && !session.profile.services.includes('New User')) {
+    // User exists in providers but might need profile sync
+    console.log('Checking if provider needs profile sync...');
+    
+    const needsSync = userProvider.services.includes('New User') && 
+                     session.profile.services && 
+                     !session.profile.services.includes('New User');
+    
+    if (needsSync) {
+      console.log('Syncing complete profile to existing provider...');
+      
+      userProvider.name = session.profile.fullName || session.name;
+      userProvider.firstName = session.profile.firstName;
+      userProvider.lastName = session.profile.lastName;
+      userProvider.services = session.profile.services;
+      userProvider.bio = session.profile.bio;
+      userProvider.licenses = session.profile.licenses;
+      userProvider.certifications = session.profile.certifications;
+      userProvider.portfolio = session.profile.portfolio;
+      userProvider.socials = session.profile.socials;
+      userProvider.availability = session.profile.availability;
+      
+      save(STORAGE_KEYS.PROVIDERS, providers);
+      console.log('Provider updated with complete profile:', userProvider);
+    }
+  }
+  
+  console.log('validateSession - session is valid');
   return true;
 }
+// Function to notify admin page of updates
+function notifyAdminPageUpdate() {
+  console.log('=== NOTIFYING ADMIN PAGE UPDATE ===');
+  console.log('Current hash:', location.hash);
+  console.log('Is admin page open:', location.hash === '#admin');
+  
+  // Check if admin page is currently open
+  if (location.hash === '#admin') {
+    console.log('Admin page is open - refreshing to show new users');
+    // Small delay to ensure data is saved before refresh
+    setTimeout(() => {
+      console.log('Refreshing admin page...');
+      renderAdmin();
+    }, 100);
+  } else {
+    console.log('Admin page not open - no refresh needed');
+  }
+}
+
 function updateAuthUI(){
   const s = getSession();
   const profileIcon = document.getElementById('profileIcon');
@@ -868,6 +1003,22 @@ function renderMessages(){
   const messages = load(STORAGE_KEYS.MESSAGES, []);
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   
+  // Check if user is admin
+  const adminEmails = [
+    'faarnaoperez@crimson.ua.edu',
+    'dhnguyen3@crimson.ua.edu', 
+    'zkmccluney@crimson.ua.edu',
+    'jdmiller16@crimson.ua.edu'
+  ];
+  const isAdmin = session && adminEmails.includes(session.email);
+  
+  // Admin should only see support requests, not user-to-user messages
+  if (isAdmin) {
+    // For admin, show support requests instead of messages
+    renderAdminSupport();
+    return;
+  }
+  
   // Filter messages to show conversations with providers and support bot
   const providerIds = providers.map(p => p.id);
   const providerMessages = messages.filter(m => 
@@ -1028,6 +1179,19 @@ function renderConversationView(conversation){
 function sendInlineMessage(threadId, partnerId){
   const session = getSession();
   if(!session){ alert('Please sign in to send messages.'); return; }
+  
+  // Check if user is banned
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === session.id);
+  if (user && user.banned) {
+    const now = new Date();
+    const banEndDate = new Date(user.banEndDate);
+    if (now < banEndDate) {
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`You are currently banned and cannot send messages to other users. Your ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    }
+  }
   
   const messageInput = document.getElementById('inlineMessageInput');
   const text = messageInput.value.trim();
@@ -1228,6 +1392,13 @@ function renderAdmin(){
     providers.filter(p => p.services.some(s => s.toLowerCase().includes(serviceFilter.toLowerCase()))) : 
     providers;
   
+  console.log('=== ADMIN PAGE RENDERING ===');
+  console.log('Total providers:', providers.length);
+  console.log('Filtered providers:', filteredProviders.length);
+  console.log('Service filter:', serviceFilter);
+  console.log('All providers details:', providers);
+  console.log('Filtered providers details:', filteredProviders);
+  
   mount(h`
     <section>
       <h2 class="tt-section-title">Admin Dashboard</h2>
@@ -1251,12 +1422,14 @@ function renderAdmin(){
         <div class="tt-section-title">Providers ${serviceFilter ? `(${serviceFilter})` : ''}</div>
         <div class="tt-grid">
           ${filteredProviders.map(p => h`<article class='tt-card'><div class='tt-card__body'>
-            <div class='tt-card__title'>${p.name}</div>
+            <div class='tt-card__title'>${p.name} ${p.banned ? '<span style="color: #dc3545; font-size: 12px;">(BANNED)</span>' : ''}</div>
             <div class='tt-card__meta'>${p.services.join(', ')}</div>
             ${p.cwid ? `<div class='tt-card__meta'>CWID: ${p.cwid}</div>` : ''}
             ${p.email ? `<div class='tt-card__meta'>Email: ${p.email}</div>` : ''}
+            ${p.banned ? `<div class='tt-card__meta' style="color: #dc3545;">Ban ends: ${new Date(p.banEndDate).toLocaleDateString()}</div>` : ''}
             <div class='tt-card__actions'>
-              <button class='tt-button tt-button--ghost' onclick="banProvider('${p.id}')">Remove/Ban</button>
+              <button class='tt-button tt-button--danger' onclick="removeUser('${p.id}')" style="margin-right: 8px;">🗑️ Remove</button>
+              ${p.banned ? `<button class='tt-button tt-button--success' onclick="unbanUser('${p.id}')">✅ Unban</button>` : `<button class='tt-button tt-button--warning' onclick="banUser('${p.id}')">🚫 Ban</button>`}
             </div>
           </div></article>`).join('')}
         </div>
@@ -1829,6 +2002,32 @@ function submitAuthPage(){
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
+  // If user exists, validate that the email matches
+  if (existingProvider && existingProvider.email && existingProvider.email !== email) {
+    alert(`The email ${email} does not match the email on file for CWID ${cwid}. Please enter the correct email address.`);
+    return;
+  }
+  
+  // Check if user is banned
+  if (existingProvider && existingProvider.banned) {
+    const now = new Date();
+    const banEndDate = new Date(existingProvider.banEndDate);
+    
+    if (now < banEndDate) {
+      // User is still banned
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`Your account has been banned. The ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    } else {
+      // Ban has expired, remove ban status
+      existingProvider.banned = false;
+      existingProvider.banStartDate = null;
+      existingProvider.banEndDate = null;
+      existingProvider.banDuration = null;
+      save(STORAGE_KEYS.PROVIDERS, load(STORAGE_KEYS.PROVIDERS, []));
+    }
+  }
+  
   if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
     // User has a complete profile - load it into session
     const profile = {
@@ -1857,7 +2056,7 @@ function submitAuthPage(){
     setTimeout(() => navigate('#create-profile'), 10);
   } else {
     // New user - create initial profile entry
-    providers.push({ 
+    const newUser = { 
       id: userId, 
       name: name, 
       services: ['New User'], 
@@ -1873,10 +2072,16 @@ function submitAuthPage(){
       campus: 'UA',
       cwid: cwid,
       email: email
-    });
+    };
+    providers.push(newUser);
     save(STORAGE_KEYS.PROVIDERS, providers);
     
+    console.log('Created new user in providers list:', newUser);
     setSession({ id: userId, cwid, email, name, profile: null });
+    
+    // Notify admin page if it's currently open
+    notifyAdminPageUpdate();
+    
     console.log('Navigating to #create-profile');
     setTimeout(() => navigate('#create-profile'), 10);
   }
@@ -2123,7 +2328,7 @@ function submitProfileCreate(){
     existingProvider.profilePicture = uploadedProfilePicture;
   } else {
     // Add new provider
-    providers.push({ 
+    const newProvider = { 
       id: s.id, 
       name: fullName,
       firstName,
@@ -2142,7 +2347,10 @@ function submitProfileCreate(){
       campus: 'UA',
       cwid: s.cwid,
       email: s.email
-    });
+    };
+    
+    providers.push(newProvider);
+    console.log('Created new provider with complete profile:', newProvider);
   }
   save(STORAGE_KEYS.PROVIDERS, providers);
   
@@ -2150,6 +2358,20 @@ function submitProfileCreate(){
   console.log('Updated provider data:', existingProvider || 'New provider created');
   console.log('Services saved:', services);
   console.log('Provider services after save:', existingProvider?.services || 'New provider');
+  
+  // Verify the save worked
+  const verifyProviders = load(STORAGE_KEYS.PROVIDERS, []);
+  const verifyUser = verifyProviders.find(p => p.id === s.id);
+  console.log('Verification - User found in providers after save:', !!verifyUser);
+  console.log('Verification - User services after save:', verifyUser?.services);
+  console.log('Verification - User services include New User:', verifyUser?.services?.includes('New User'));
+  
+  // Test session validation
+  const sessionValid = validateSession();
+  console.log('Session validation after profile creation:', sessionValid);
+  
+  // Notify admin page if it's currently open
+  notifyAdminPageUpdate();
   
   alert('Profile created successfully! Welcome to Tide Together! 🎉');
   navigate('#home');
@@ -2641,6 +2863,19 @@ function submitBooking(){
   const session = getSession();
   if(!session){ alert('Please sign in to book.'); return; }
   
+  // Check if user is banned
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === session.id);
+  if (user && user.banned) {
+    const now = new Date();
+    const banEndDate = new Date(user.banEndDate);
+    if (now < banEndDate) {
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`You are currently banned and cannot make bookings. Your ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    }
+  }
+  
   const service = document.getElementById('bookingService').value;
   const date = document.getElementById('bookingDate').value;
   const time = document.getElementById('bookingTime').value;
@@ -2649,7 +2884,6 @@ function submitBooking(){
   
   if(!service || !date || !time){ alert('Please select a service, date, and time.'); return; }
   
-  const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const provider = providers.find(p => p.services.includes(service));
   if(!provider){ alert('Provider not found.'); return; }
   
@@ -2808,6 +3042,19 @@ function deleteReview(reviewId){
 function startDM(providerId){
   const session = getSession();
   if(!session){ alert('Please sign in to message.'); return; }
+  
+  // Check if user is banned
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === session.id);
+  if (user && user.banned) {
+    const now = new Date();
+    const banEndDate = new Date(user.banEndDate);
+    if (now < banEndDate) {
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`You are currently banned and cannot send messages to other users. Your ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    }
+  }
   const p = load(STORAGE_KEYS.PROVIDERS, []).find(x=>x.id===providerId);
   const messages = load(STORAGE_KEYS.MESSAGES, []);
   const threadId = `t_${[session.id, providerId].sort().join('_')}`;
@@ -2893,6 +3140,19 @@ function sendMessage(threadId, partnerId){
   const session = getSession();
   if(!session){ alert('Please sign in to send messages.'); return; }
   
+  // Check if user is banned
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === session.id);
+  if (user && user.banned) {
+    const now = new Date();
+    const banEndDate = new Date(user.banEndDate);
+    if (now < banEndDate) {
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`You are currently banned and cannot send messages to other users. Your ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    }
+  }
+  
   const messageInput = document.getElementById('messageInput');
   const text = messageInput.value.trim();
   if(!text){ alert('Please enter a message.'); return; }
@@ -2928,11 +3188,75 @@ function filterAdminServices(service){
   renderAdmin();
 }
 
-function banProvider(id){
-  if(!confirm('Remove/ban this provider?')) return;
+function removeUser(id){
+  if(!confirm('Are you sure you\'d like to delete this person? This action cannot be undone.')) return;
   let providers = load(STORAGE_KEYS.PROVIDERS, []);
   providers = providers.filter(p => p.id !== id);
   save(STORAGE_KEYS.PROVIDERS, providers);
+  renderAdmin();
+}
+
+function banUser(id){
+  // Show ban duration selection dialog
+  const duration = prompt('Select ban duration:\n1. 1 week\n2. 30 days\n3. 60 days\n4. 90 days\n\nEnter 1, 2, 3, or 4:');
+  
+  if (!duration || !['1', '2', '3', '4'].includes(duration)) {
+    alert('Invalid selection. Ban cancelled.');
+    return;
+  }
+  
+  let providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === id);
+  
+  if (!user) {
+    alert('User not found.');
+    return;
+  }
+  
+  // Calculate ban end date
+  const now = new Date();
+  let banDays;
+  switch(duration) {
+    case '1': banDays = 7; break;
+    case '2': banDays = 30; break;
+    case '3': banDays = 60; break;
+    case '4': banDays = 90; break;
+  }
+  
+  const banEndDate = new Date(now.getTime() + (banDays * 24 * 60 * 60 * 1000));
+  
+  // Update user with ban information
+  user.banned = true;
+  user.banStartDate = now.toISOString();
+  user.banEndDate = banEndDate.toISOString();
+  user.banDuration = banDays;
+  
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  alert(`User ${user.name} has been banned for ${banDays} days. Ban will end on ${banEndDate.toLocaleDateString()}.`);
+  renderAdmin();
+}
+
+function unbanUser(id){
+  if(!confirm('Are you sure you want to unban this user?')) return;
+  
+  let providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const user = providers.find(p => p.id === id);
+  
+  if (!user) {
+    alert('User not found.');
+    return;
+  }
+  
+  // Remove ban information
+  user.banned = false;
+  user.banStartDate = null;
+  user.banEndDate = null;
+  user.banDuration = null;
+  
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  alert(`User ${user.name} has been unbanned.`);
   renderAdmin();
 }
 
@@ -3482,6 +3806,1075 @@ window.testSessionPersistence = function(){
   };
 };
 
+// Debug function to manually test session creation
+window.testSessionCreation = function() {
+  console.log('=== TESTING SESSION CREATION ===');
+  
+  // Create a test session
+  const testSession = {
+    id: 'u_12345678',
+    cwid: '12345678',
+    email: 'test@crimson.ua.edu',
+    name: 'Test User',
+    profile: {
+      services: ['Tutor'],
+      availability: [1, 2, 3],
+      bio: 'Test bio'
+    }
+  };
+  
+  console.log('Creating test session:', testSession);
+  setSession(testSession);
+  
+  // Verify it was saved
+  const savedSession = getSession();
+  console.log('Saved session:', savedSession);
+  
+  // Test validation
+  const isValid = validateSession();
+  console.log('Session validation:', isValid);
+  
+  console.log('===========================');
+  
+  return {
+    created: testSession,
+    saved: savedSession,
+    isValid
+  };
+};
+
+// Debug function to test localStorage directly
+window.testLocalStorage = function() {
+  console.log('=== TESTING LOCALSTORAGE DIRECTLY ===');
+  
+  // Test direct localStorage operations
+  const testData = { test: 'data', timestamp: Date.now() };
+  localStorage.setItem('test_key', JSON.stringify(testData));
+  const retrieved = JSON.parse(localStorage.getItem('test_key'));
+  console.log('Direct localStorage test:', { testData, retrieved, match: JSON.stringify(testData) === JSON.stringify(retrieved) });
+  
+  // Test STORAGE_KEYS.SESSION specifically
+  const sessionKey = STORAGE_KEYS.SESSION;
+  console.log('Session key:', sessionKey);
+  
+  // Test load/save functions
+  const testSession = { id: 'test', name: 'Test User' };
+  save(sessionKey, testSession);
+  const loadedSession = load(sessionKey, null);
+  console.log('Load/save test:', { testSession, loadedSession, match: JSON.stringify(testSession) === JSON.stringify(loadedSession) });
+  
+  // Check what's actually in localStorage
+  const rawSession = localStorage.getItem(sessionKey);
+  console.log('Raw session in localStorage:', rawSession);
+  
+  console.log('===========================');
+  
+  return {
+    directTest: { testData, retrieved },
+    sessionTest: { testSession, loadedSession },
+    rawSession
+  };
+};
+
+// Debug function to check what providers exist
+window.checkProviders = function() {
+  console.log('=== CHECKING PROVIDERS ===');
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Total providers:', providers.length);
+  console.log('Provider IDs:', providers.map(p => p.id));
+  console.log('Provider details:', providers.map(p => ({ id: p.id, name: p.name, email: p.email })));
+  
+  return providers;
+};
+
+// Debug function to test complete login and session persistence
+window.testCompleteLogin = function(cwid = '12345678', email = 'test@crimson.ua.edu') {
+  console.log('=== TESTING COMPLETE LOGIN FLOW ===');
+  
+  // Step 1: Check current providers
+  console.log('Step 1: Current providers');
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Provider IDs:', providers.map(p => p.id));
+  
+  // Step 2: Simulate login process
+  console.log('Step 2: Simulating login');
+  const userId = `u_${cwid}`;
+  const name = email.split('@')[0].replace('.', ' ');
+  
+  // Check if user exists
+  const existingProvider = providers.find(p => p.id === userId);
+  console.log('Existing provider found:', !!existingProvider);
+  
+  if (!existingProvider) {
+    console.log('Creating new user in providers list');
+    const newUser = { 
+      id: userId, 
+      name: name, 
+      services: ['New User'], 
+      rating: 5.0, 
+      reviewsCount: 0, 
+      distanceMiles: 0.5, 
+      bio: 'New user - profile setup pending', 
+      licenses: [], 
+      certifications: [], 
+      portfolio: [], 
+      socials: {}, 
+      availability: [], 
+      campus: 'UA',
+      cwid: cwid,
+      email: email
+    };
+    providers.push(newUser);
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    console.log('New user created:', newUser);
+  }
+  
+  // Step 3: Create session
+  console.log('Step 3: Creating session');
+  const session = { id: userId, cwid, email, name, profile: null };
+  setSession(session);
+  console.log('Session created:', session);
+  
+  // Step 4: Test session validation
+  console.log('Step 4: Testing session validation');
+  const isValid = validateSession();
+  console.log('Session validation result:', isValid);
+  
+  // Step 5: Test session persistence
+  console.log('Step 5: Testing session persistence');
+  const savedSession = getSession();
+  console.log('Saved session:', savedSession);
+  
+  console.log('===========================');
+  
+  return {
+    providers: load(STORAGE_KEYS.PROVIDERS, []),
+    session: savedSession,
+    isValid
+  };
+};
+
+// Debug function to fix the current user's session
+window.fixCurrentUser = function() {
+  console.log('=== FIXING CURRENT USER SESSION ===');
+  
+  // Get current session
+  const session = getSession();
+  console.log('Current session:', session);
+  
+  if (!session) {
+    console.log('No session found - nothing to fix');
+    return;
+  }
+  
+  // Check if user exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const existingProvider = providers.find(p => p.id === session.id);
+  console.log('User exists in providers:', !!existingProvider);
+  
+  if (!existingProvider) {
+    console.log('User not found in providers - adding them now');
+    
+    // Create the user in providers list
+    const newUser = {
+      id: session.id,
+      name: session.name,
+      services: ['New User'],
+      rating: 5.0,
+      reviewsCount: 0,
+      distanceMiles: 0.5,
+      bio: 'New user - profile setup pending',
+      licenses: [],
+      certifications: [],
+      portfolio: [],
+      socials: {},
+      availability: [],
+      campus: 'UA',
+      cwid: session.cwid,
+      email: session.email
+    };
+    
+    providers.push(newUser);
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    console.log('User added to providers:', newUser);
+    
+    // Test session validation now
+    const isValid = validateSession();
+    console.log('Session validation after fix:', isValid);
+    
+    if (isValid) {
+      console.log('✅ Session is now valid - user should stay logged in after refresh');
+    } else {
+      console.log('❌ Session still invalid - there may be another issue');
+    }
+    
+    return { fixed: true, isValid };
+  } else {
+    console.log('User already exists in providers - session should be valid');
+    const isValid = validateSession();
+    console.log('Session validation:', isValid);
+    return { fixed: false, isValid };
+  }
+};
+
+// Debug function to check tab sessions
+window.checkTabSessions = function() {
+  console.log('=== CHECKING TAB SESSIONS ===');
+  
+  const tabId = getTabId();
+  console.log('Current tab ID:', tabId);
+  
+  // Check tab-specific session
+  const tabSession = load(STORAGE_KEYS.SESSION + '_tab_' + tabId, null);
+  console.log('Tab-specific session:', tabSession);
+  
+  // Check global session
+  const globalSession = load(STORAGE_KEYS.SESSION, null);
+  console.log('Global session:', globalSession);
+  
+  // Check all tab sessions in localStorage
+  const allKeys = Object.keys(localStorage);
+  const tabSessions = allKeys.filter(key => key.startsWith(STORAGE_KEYS.SESSION + '_tab_'));
+  console.log('All tab sessions:', tabSessions);
+  
+  tabSessions.forEach(key => {
+    const session = load(key, null);
+    console.log(`${key}:`, session);
+  });
+  
+  return {
+    tabId,
+    tabSession,
+    globalSession,
+    allTabSessions: tabSessions
+  };
+};
+
+// Debug function to clear all sessions
+window.clearAllSessions = function() {
+  console.log('=== CLEARING ALL SESSIONS ===');
+  
+  // Clear global session
+  localStorage.removeItem(STORAGE_KEYS.SESSION);
+  
+  // Clear all tab sessions
+  const allKeys = Object.keys(localStorage);
+  const tabSessions = allKeys.filter(key => key.startsWith(STORAGE_KEYS.SESSION + '_tab_'));
+  tabSessions.forEach(key => localStorage.removeItem(key));
+  
+  // Clear sessionStorage tab ID
+  sessionStorage.removeItem('tt_tab_id');
+  
+  console.log('All sessions cleared');
+  console.log('Page will need to be refreshed');
+};
+
+// Debug function to migrate global session to tab-specific
+window.migrateSession = function() {
+  console.log('=== MIGRATING SESSION TO TAB-SPECIFIC ===');
+  
+  // Check if there's a global session
+  const globalSession = load(STORAGE_KEYS.SESSION, null);
+  console.log('Global session found:', !!globalSession);
+  
+  if (globalSession) {
+    console.log('Migrating global session to tab-specific session');
+    
+    // Get current tab ID
+    const tabId = getTabId();
+    console.log('Current tab ID:', tabId);
+    
+    // Save to tab-specific session
+    save(STORAGE_KEYS.SESSION + '_tab_' + tabId, globalSession);
+    console.log('Session migrated to tab-specific storage');
+    
+    // Clear global session
+    localStorage.removeItem(STORAGE_KEYS.SESSION);
+    console.log('Global session cleared');
+    
+    // Test the migration
+    const tabSession = getSession();
+    console.log('Tab session after migration:', tabSession);
+    
+    return { migrated: true, session: tabSession };
+  } else {
+    console.log('No global session to migrate');
+    return { migrated: false };
+  }
+};
+
+// Debug function to test profile checking logic
+window.testProfileCheck = function() {
+  console.log('=== TESTING PROFILE CHECK LOGIC ===');
+  
+  const session = getSession();
+  console.log('Current session:', session);
+  
+  if (!session) {
+    console.log('No session found');
+    return { needsProfile: true, reason: 'No session' };
+  }
+  
+  console.log('Profile check details:');
+  console.log('- s.profile exists:', !!session.profile);
+  console.log('- s.profile.services exists:', !!session.profile?.services);
+  console.log('- s.profile.services is array:', Array.isArray(session.profile?.services));
+  console.log('- s.profile.services length:', session.profile?.services?.length);
+  console.log('- s.profile.services content:', session.profile?.services);
+  console.log('- includes New User:', session.profile?.services?.includes('New User'));
+  
+  const needsProfile = !session.profile || 
+                      !Array.isArray(session.profile.services) || 
+                      session.profile.services.length === 0 || 
+                      session.profile.services.includes('New User');
+  
+  console.log('Needs profile creation:', needsProfile);
+  
+  if (needsProfile) {
+    console.log('User will be redirected to profile creation');
+  } else {
+    console.log('User has complete profile - can access app');
+  }
+  
+  return { needsProfile, session };
+};
+
+// Debug function to check admin providers list
+window.checkAdminProviders = function() {
+  console.log('=== CHECKING ADMIN PROVIDERS LIST ===');
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Total providers in storage:', providers.length);
+  console.log('All providers:', providers);
+  
+  // Check for new users
+  const newUsers = providers.filter(p => p.services && p.services.includes('New User'));
+  console.log('New users (incomplete profiles):', newUsers.length);
+  console.log('New users details:', newUsers);
+  
+  // Check for complete profiles
+  const completeProfiles = providers.filter(p => p.services && p.services.length > 0 && !p.services.includes('New User'));
+  console.log('Complete profiles:', completeProfiles.length);
+  console.log('Complete profiles details:', completeProfiles);
+  
+  // Check for users without services
+  const noServices = providers.filter(p => !p.services || p.services.length === 0);
+  console.log('Users without services:', noServices.length);
+  console.log('Users without services details:', noServices);
+  
+  return {
+    total: providers.length,
+    newUsers: newUsers.length,
+    completeProfiles: completeProfiles.length,
+    noServices: noServices.length,
+    providers
+  };
+};
+
+// Debug function to add a test user to providers
+window.addTestUser = function() {
+  console.log('=== ADDING TEST USER TO PROVIDERS ===');
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const testUserId = 'test_user_' + Date.now();
+  
+  const testUser = {
+    id: testUserId,
+    name: 'Test User',
+    services: ['New User'],
+    rating: 5.0,
+    reviewsCount: 0,
+    distanceMiles: 0.5,
+    bio: 'Test user for debugging',
+    licenses: [],
+    certifications: [],
+    portfolio: [],
+    socials: {},
+    availability: [],
+    campus: 'UA',
+    cwid: '12345678',
+    email: 'test@crimson.ua.edu'
+  };
+  
+  providers.push(testUser);
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  console.log('Test user added:', testUser);
+  console.log('Total providers now:', providers.length);
+  
+  return testUser;
+};
+
+// Debug function to test admin page rendering
+window.testAdminRendering = function() {
+  console.log('=== TESTING ADMIN PAGE RENDERING ===');
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Providers loaded:', providers.length);
+  console.log('Provider details:', providers);
+  
+  // Test the filtering logic
+  const serviceFilter = '';
+  const filteredProviders = serviceFilter ? 
+    providers.filter(p => p.services.some(s => s.toLowerCase().includes(serviceFilter.toLowerCase()))) : 
+    providers;
+  
+  console.log('Filtered providers:', filteredProviders.length);
+  console.log('Filtered provider details:', filteredProviders);
+  
+  // Test the template generation
+  const template = filteredProviders.map(p => {
+    const card = `
+      <article class='tt-card'>
+        <div class='tt-card__body'>
+          <div class='tt-card__title'>${p.name} ${p.banned ? '<span style="color: #dc3545; font-size: 12px;">(BANNED)</span>' : ''}</div>
+          <div class='tt-card__meta'>${p.services.join(', ')}</div>
+          ${p.cwid ? `<div class='tt-card__meta'>CWID: ${p.cwid}</div>` : ''}
+          ${p.email ? `<div class='tt-card__meta'>Email: ${p.email}</div>` : ''}
+          ${p.banned ? `<div class='tt-card__meta' style="color: #dc3545;">Ban ends: ${new Date(p.banEndDate).toLocaleDateString()}</div>` : ''}
+          <div class='tt-card__actions'>
+            <button class='tt-button tt-button--danger' onclick="removeUser('${p.id}')" style="margin-right: 8px;">🗑️ Remove</button>
+            ${p.banned ? `<button class='tt-button tt-button--success' onclick="unbanUser('${p.id}')">✅ Unban</button>` : `<button class='tt-button tt-button--warning' onclick="banUser('${p.id}')">🚫 Ban</button>`}
+          </div>
+        </div>
+      </article>
+    `;
+    console.log(`Generated card for ${p.name}:`, card);
+    return card;
+  }).join('');
+  
+  console.log('Generated template:', template);
+  
+  return {
+    providers: providers.length,
+    filtered: filteredProviders.length,
+    template: template
+  };
+};
+
+// Debug function to test profile creation and session persistence
+window.testProfileCreation = function() {
+  console.log('=== TESTING PROFILE CREATION AND SESSION PERSISTENCE ===');
+  
+  // Check current session
+  const currentSession = getSession();
+  console.log('Current session:', currentSession);
+  
+  // Check if user exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = providers.find(p => p.id === currentSession?.id);
+  console.log('User found in providers:', !!userProvider);
+  console.log('User provider details:', userProvider);
+  
+  // Test session validation
+  const isValid = validateSession();
+  console.log('Session validation result:', isValid);
+  
+  // Check what happens after profile creation
+  if (currentSession && currentSession.profile) {
+    console.log('User has profile in session:', currentSession.profile);
+    console.log('Profile services:', currentSession.profile.services);
+    console.log('Services include New User:', currentSession.profile.services?.includes('New User'));
+    
+    // Check if profile is properly saved in providers
+    if (userProvider) {
+      console.log('User provider services:', userProvider.services);
+      console.log('Provider services include New User:', userProvider.services?.includes('New User'));
+      console.log('Profile matches provider:', JSON.stringify(currentSession.profile) === JSON.stringify({
+        firstName: userProvider.firstName,
+        lastName: userProvider.lastName,
+        fullName: userProvider.name,
+        services: userProvider.services,
+        availability: userProvider.availability,
+        bio: userProvider.bio,
+        licenses: userProvider.licenses,
+        certifications: userProvider.certifications,
+        portfolio: userProvider.portfolio,
+        socials: userProvider.socials
+      }));
+    }
+  }
+  
+  return {
+    session: currentSession,
+    userProvider,
+    isValid,
+    hasProfile: !!currentSession?.profile
+  };
+};
+
+// Debug function to fix profile persistence issues
+window.fixProfilePersistence = function() {
+  console.log('=== FIXING PROFILE PERSISTENCE ISSUES ===');
+  
+  const session = getSession();
+  if (!session) {
+    console.log('No session found - cannot fix');
+    return { fixed: false, reason: 'No session' };
+  }
+  
+  console.log('Current session:', session);
+  
+  // Check if user exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = providers.find(p => p.id === session.id);
+  console.log('User found in providers:', !!userProvider);
+  
+  if (!userProvider) {
+    console.log('User not found in providers - adding them');
+    
+    // Create user in providers list
+    const newUser = {
+      id: session.id,
+      name: session.name,
+      services: session.profile?.services || ['New User'],
+      rating: 5.0,
+      reviewsCount: 0,
+      distanceMiles: 0.5,
+      bio: session.profile?.bio || 'New user - profile setup pending',
+      licenses: session.profile?.licenses || [],
+      certifications: session.profile?.certifications || [],
+      portfolio: session.profile?.portfolio || [],
+      socials: session.profile?.socials || {},
+      availability: session.profile?.availability || [],
+      campus: 'UA',
+      cwid: session.cwid,
+      email: session.email,
+      firstName: session.profile?.firstName,
+      lastName: session.profile?.lastName
+    };
+    
+    providers.push(newUser);
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    console.log('User added to providers:', newUser);
+    
+    return { fixed: true, action: 'Added user to providers' };
+  }
+  
+  // Check if profile data is properly synced
+  if (session.profile && userProvider) {
+    console.log('Checking profile sync...');
+    
+    const needsUpdate = 
+      userProvider.services.includes('New User') && 
+      session.profile.services && 
+      !session.profile.services.includes('New User');
+    
+    if (needsUpdate) {
+      console.log('Profile needs to be updated in providers list');
+      
+      // Update the provider with session profile data
+      userProvider.name = session.profile.fullName || session.name;
+      userProvider.firstName = session.profile.firstName;
+      userProvider.lastName = session.profile.lastName;
+      userProvider.services = session.profile.services;
+      userProvider.bio = session.profile.bio;
+      userProvider.licenses = session.profile.licenses;
+      userProvider.certifications = session.profile.certifications;
+      userProvider.portfolio = session.profile.portfolio;
+      userProvider.socials = session.profile.socials;
+      userProvider.availability = session.profile.availability;
+      
+      save(STORAGE_KEYS.PROVIDERS, providers);
+      console.log('Provider updated with profile data');
+      
+      return { fixed: true, action: 'Updated provider with profile data' };
+    }
+  }
+  
+  // Test session validation
+  const isValid = validateSession();
+  console.log('Session validation after fix:', isValid);
+  
+  return { 
+    fixed: true, 
+    action: 'No changes needed', 
+    isValid 
+  };
+};
+
+// Debug function to manually sync current session profile with providers
+window.syncProfileToProviders = function() {
+  console.log('=== SYNCING PROFILE TO PROVIDERS ===');
+  
+  const session = getSession();
+  if (!session || !session.profile) {
+    console.log('No session or profile found');
+    return { success: false, reason: 'No session or profile' };
+  }
+  
+  console.log('Current session:', session);
+  console.log('Session profile:', session.profile);
+  
+  // Get providers list
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = providers.find(p => p.id === session.id);
+  
+  if (!userProvider) {
+    console.log('User not found in providers - creating new entry');
+    
+    // Create new provider entry
+    const newProvider = {
+      id: session.id,
+      name: session.profile.fullName || session.name,
+      firstName: session.profile.firstName,
+      lastName: session.profile.lastName,
+      services: session.profile.services,
+      rating: 5.0,
+      reviewsCount: 0,
+      distanceMiles: Math.random() * 2 + 0.5,
+      bio: session.profile.bio,
+      licenses: session.profile.licenses,
+      certifications: session.profile.certifications,
+      portfolio: session.profile.portfolio,
+      socials: session.profile.socials,
+      availability: session.profile.availability,
+      campus: 'UA',
+      cwid: session.cwid,
+      email: session.email
+    };
+    
+    providers.push(newProvider);
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    console.log('Created new provider:', newProvider);
+    
+    return { success: true, action: 'Created new provider' };
+  }
+  
+  // Update existing provider
+  console.log('Updating existing provider:', userProvider);
+  
+  userProvider.name = session.profile.fullName || session.name;
+  userProvider.firstName = session.profile.firstName;
+  userProvider.lastName = session.profile.lastName;
+  userProvider.services = session.profile.services;
+  userProvider.bio = session.profile.bio;
+  userProvider.licenses = session.profile.licenses;
+  userProvider.certifications = session.profile.certifications;
+  userProvider.portfolio = session.profile.portfolio;
+  userProvider.socials = session.profile.socials;
+  userProvider.availability = session.profile.availability;
+  
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  console.log('Updated provider:', userProvider);
+  
+  // Test session validation
+  const isValid = validateSession();
+  console.log('Session validation after sync:', isValid);
+  
+  return { 
+    success: true, 
+    action: 'Updated existing provider',
+    isValid 
+  };
+};
+
+// Debug function to test complete profile persistence flow
+window.testProfilePersistenceFlow = function() {
+  console.log('=== TESTING COMPLETE PROFILE PERSISTENCE FLOW ===');
+  
+  // Step 1: Check current session
+  const session = getSession();
+  console.log('Step 1 - Current session:', session);
+  
+  if (!session) {
+    console.log('❌ No session found - user not logged in');
+    return { success: false, step: 'session_check' };
+  }
+  
+  // Step 2: Check if user has profile
+  if (!session.profile) {
+    console.log('❌ No profile in session - user needs to create profile');
+    return { success: false, step: 'profile_check' };
+  }
+  
+  console.log('Step 2 - Session profile:', session.profile);
+  console.log('Step 2 - Profile services:', session.profile.services);
+  console.log('Step 2 - Services include New User:', session.profile.services?.includes('New User'));
+  
+  // Step 3: Check providers list
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const userProvider = providers.find(p => p.id === session.id);
+  console.log('Step 3 - User found in providers:', !!userProvider);
+  
+  if (userProvider) {
+    console.log('Step 3 - Provider services:', userProvider.services);
+    console.log('Step 3 - Provider services include New User:', userProvider.services?.includes('New User'));
+  }
+  
+  // Step 4: Test session validation
+  const isValid = validateSession();
+  console.log('Step 4 - Session validation result:', isValid);
+  
+  // Step 5: Simulate page refresh
+  console.log('Step 5 - Simulating page refresh...');
+  
+  // Clear session temporarily to simulate refresh
+  const originalSession = session;
+  setSession(null);
+  
+  // Restore session
+  setSession(originalSession);
+  
+  // Test validation again
+  const isValidAfterRefresh = validateSession();
+  console.log('Step 5 - Session validation after refresh simulation:', isValidAfterRefresh);
+  
+  // Step 6: Check if profile would persist
+  if (isValidAfterRefresh) {
+    console.log('✅ Profile would persist after refresh');
+    return { 
+      success: true, 
+      session, 
+      userProvider, 
+      isValid, 
+      wouldPersist: true 
+    };
+  } else {
+    console.log('❌ Profile would NOT persist after refresh');
+    return { 
+      success: false, 
+      session, 
+      userProvider, 
+      isValid, 
+      wouldPersist: false 
+    };
+  }
+};
+
+// Debug function to manually refresh admin page
+window.refreshAdminPage = function() {
+  console.log('=== MANUALLY REFRESHING ADMIN PAGE ===');
+  
+  // Force re-render of admin page
+  if (location.hash === '#admin') {
+    console.log('Currently on admin page - re-rendering...');
+    renderAdmin();
+  } else {
+    console.log('Not on admin page - navigating to admin page...');
+    location.hash = '#admin';
+  }
+  
+  return { refreshed: true };
+};
+
+// Debug function to check admin page display issues
+window.debugAdminDisplay = function() {
+  console.log('=== DEBUGGING ADMIN PAGE DISPLAY ===');
+  
+  // Check providers list
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Total providers in storage:', providers.length);
+  console.log('All providers:', providers);
+  
+  // Check if we're on admin page
+  const isAdminPage = location.hash === '#admin';
+  console.log('Currently on admin page:', isAdminPage);
+  
+  // Check admin access
+  const session = getSession();
+  const adminEmails = [
+    'faarnaoperez@crimson.ua.edu',
+    'dhnguyen3@crimson.ua.edu', 
+    'zkmccluney@crimson.ua.edu',
+    'jdmiller16@crimson.ua.edu'
+  ];
+  const isAdmin = session && adminEmails.includes(session.email);
+  console.log('Current user is admin:', isAdmin);
+  console.log('Current session:', session);
+  
+  // Check filtering
+  const params = new URLSearchParams(location.search);
+  const serviceFilter = params.get('service') || '';
+  const filteredProviders = serviceFilter ? 
+    providers.filter(p => p.services.some(s => s.toLowerCase().includes(serviceFilter.toLowerCase()))) : 
+    providers;
+  
+  console.log('Service filter:', serviceFilter);
+  console.log('Filtered providers count:', filteredProviders.length);
+  console.log('Filtered providers:', filteredProviders);
+  
+  // Test template generation
+  const template = filteredProviders.map(p => {
+    return `<article class='tt-card'><div class='tt-card__body'>
+      <div class='tt-card__title'>${p.name} ${p.banned ? '<span style="color: #dc3545; font-size: 12px;">(BANNED)</span>' : ''}</div>
+      <div class='tt-card__meta'>${p.services.join(', ')}</div>
+      ${p.cwid ? `<div class='tt-card__meta'>CWID: ${p.cwid}</div>` : ''}
+      ${p.email ? `<div class='tt-card__meta'>Email: ${p.email}</div>` : ''}
+      ${p.banned ? `<div class='tt-card__meta' style="color: #dc3545;">Ban ends: ${new Date(p.banEndDate).toLocaleDateString()}</div>` : ''}
+      <div class='tt-card__actions'>
+        <button class='tt-button tt-button--danger' onclick="removeUser('${p.id}')" style="margin-right: 8px;">🗑️ Remove</button>
+        ${p.banned ? `<button class='tt-button tt-button--success' onclick="unbanUser('${p.id}')">✅ Unban</button>` : `<button class='tt-button tt-button--warning' onclick="banUser('${p.id}')">🚫 Ban</button>`}
+      </div>
+    </div></article>`;
+  }).join('');
+  
+  console.log('Generated template length:', template.length);
+  console.log('Generated template preview:', template.substring(0, 200) + '...');
+  
+  return {
+    providersCount: providers.length,
+    filteredCount: filteredProviders.length,
+    isAdminPage,
+    isAdmin,
+    serviceFilter,
+    templateLength: template.length
+  };
+};
+
+// Debug function to test admin page real-time updates
+window.testAdminUpdates = function() {
+  console.log('=== TESTING ADMIN PAGE REAL-TIME UPDATES ===');
+  
+  // Add a test user
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const testUserId = 'test_update_' + Date.now();
+  
+  const testUser = {
+    id: testUserId,
+    name: 'Real-time Test User',
+    services: ['New User'],
+    rating: 5.0,
+    reviewsCount: 0,
+    distanceMiles: 0.5,
+    bio: 'Test user for real-time updates',
+    licenses: [],
+    certifications: [],
+    portfolio: [],
+    socials: {},
+    availability: [],
+    campus: 'UA',
+    cwid: '99999999',
+    email: 'realtime@crimson.ua.edu'
+  };
+  
+  providers.push(testUser);
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  console.log('Test user added:', testUser);
+  console.log('Total providers now:', providers.length);
+  
+  // Test the notification function
+  notifyAdminPageUpdate();
+  
+  console.log('Admin page should have been notified of the update');
+  
+  return {
+    testUser,
+    totalProviders: providers.length,
+    adminPageNotified: location.hash === '#admin'
+  };
+};
+
+// Debug function to manually trigger admin update
+window.triggerAdminUpdate = function() {
+  console.log('=== MANUALLY TRIGGERING ADMIN UPDATE ===');
+  
+  // Check current state
+  console.log('Current hash:', location.hash);
+  console.log('Is admin page open:', location.hash === '#admin');
+  
+  // Force admin page refresh
+  if (location.hash === '#admin') {
+    console.log('Forcing admin page refresh...');
+    renderAdmin();
+  } else {
+    console.log('Not on admin page - navigating to admin page first...');
+    location.hash = '#admin';
+    setTimeout(() => {
+      console.log('Now refreshing admin page...');
+      renderAdmin();
+    }, 100);
+  }
+  
+  return { triggered: true, currentHash: location.hash };
+};
+
+// Debug function to check if new users are being added
+window.checkNewUsers = function() {
+  console.log('=== CHECKING FOR NEW USERS ===');
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Total providers:', providers.length);
+  console.log('All providers:', providers);
+  
+  // Check for recent users (created in last 5 minutes)
+  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+  const recentUsers = providers.filter(p => {
+    // Check if user has a timestamp or was created recently
+    return p.id && p.id.includes('u_') && !p.id.includes('test_');
+  });
+  
+  console.log('Recent users:', recentUsers.length);
+  console.log('Recent users details:', recentUsers);
+  
+  // Check for new users (with 'New User' service)
+  const newUsers = providers.filter(p => p.services && p.services.includes('New User'));
+  console.log('New users (incomplete profiles):', newUsers.length);
+  console.log('New users details:', newUsers);
+  
+  return {
+    total: providers.length,
+    recent: recentUsers.length,
+    newUsers: newUsers.length,
+    providers
+  };
+};
+
+// Debug function to test complete user creation and persistence
+window.testUserCreationFlow = function() {
+  console.log('=== TESTING COMPLETE USER CREATION FLOW ===');
+  
+  // Step 1: Check current providers count
+  const initialProviders = load(STORAGE_KEYS.PROVIDERS, []);
+  console.log('Step 1 - Initial providers count:', initialProviders.length);
+  
+  // Step 2: Create a test user
+  const testCwid = '99999999';
+  const testEmail = 'testuser@crimson.ua.edu';
+  const testUserId = `u_${testCwid}`;
+  const testName = testEmail.split('@')[0].replace('.', ' ');
+  
+  console.log('Step 2 - Creating test user:', { testCwid, testEmail, testUserId, testName });
+  
+  // Create initial user entry
+  const newUser = {
+    id: testUserId,
+    name: testName,
+    services: ['New User'],
+    rating: 5.0,
+    reviewsCount: 0,
+    distanceMiles: 0.5,
+    bio: 'New user - profile setup pending',
+    licenses: [],
+    certifications: [],
+    portfolio: [],
+    socials: {},
+    availability: [],
+    campus: 'UA',
+    cwid: testCwid,
+    email: testEmail
+  };
+  
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  providers.push(newUser);
+  save(STORAGE_KEYS.PROVIDERS, providers);
+  
+  console.log('Step 2 - User added to providers:', newUser);
+  
+  // Step 3: Simulate profile creation
+  console.log('Step 3 - Simulating profile creation...');
+  
+  const profile = {
+    firstName: 'Test',
+    lastName: 'User',
+    fullName: 'Test User',
+    services: ['Tutor', 'Study Groups'],
+    availability: ['Monday', 'Tuesday'],
+    bio: 'Test user with complete profile',
+    licenses: ['Teaching License'],
+    certifications: ['Math Tutor Certification'],
+    portfolio: [],
+    socials: { instagram: '@testuser', linkedin: 'testuser' },
+    profilePicture: null
+  };
+  
+  // Update the user with complete profile
+  const userProvider = providers.find(p => p.id === testUserId);
+  if (userProvider) {
+    userProvider.name = profile.fullName;
+    userProvider.firstName = profile.firstName;
+    userProvider.lastName = profile.lastName;
+    userProvider.services = profile.services;
+    userProvider.bio = profile.bio;
+    userProvider.licenses = profile.licenses;
+    userProvider.certifications = profile.certifications;
+    userProvider.portfolio = profile.portfolio;
+    userProvider.socials = profile.socials;
+    userProvider.availability = profile.availability;
+    
+    save(STORAGE_KEYS.PROVIDERS, providers);
+    console.log('Step 3 - Profile created and saved:', userProvider);
+  }
+  
+  // Step 4: Verify user can be found
+  const finalProviders = load(STORAGE_KEYS.PROVIDERS, []);
+  const finalUser = finalProviders.find(p => p.id === testUserId);
+  
+  console.log('Step 4 - Final verification:');
+  console.log('- Total providers:', finalProviders.length);
+  console.log('- User found:', !!finalUser);
+  console.log('- User services:', finalUser?.services);
+  console.log('- User has complete profile:', !finalUser?.services?.includes('New User'));
+  
+  // Step 5: Test admin page display
+  console.log('Step 5 - Testing admin page display...');
+  const adminProviders = finalProviders.filter(p => p.services && p.services.length > 0);
+  console.log('- Providers with services:', adminProviders.length);
+  console.log('- Test user in admin list:', adminProviders.some(p => p.id === testUserId));
+  
+  return {
+    initialCount: initialProviders.length,
+    finalCount: finalProviders.length,
+    userCreated: !!finalUser,
+    hasCompleteProfile: !finalUser?.services?.includes('New User'),
+    inAdminList: adminProviders.some(p => p.id === testUserId),
+    testUser: finalUser
+  };
+};
+
+// Debug function to simulate login process
+window.simulateLogin = function(cwid = '12345678', email = 'test@crimson.ua.edu') {
+  console.log('=== SIMULATING LOGIN PROCESS ===');
+  
+  const userId = `u_${cwid}`;
+  const name = email.split('@')[0].replace('.', ' ');
+  
+  console.log('Login parameters:', { cwid, email, userId, name });
+  
+  // Check if user exists in providers
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const existingProvider = providers.find(p => p.id === userId);
+  console.log('Existing provider found:', !!existingProvider);
+  
+  if (existingProvider) {
+    console.log('Provider details:', existingProvider);
+    
+    // Simulate the session creation that happens in submitAuthPage
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    const session = { id: userId, cwid, email, name: existingProvider.name, profile };
+    console.log('Creating session:', session);
+    
+    setSession(session);
+    
+    // Test if session was saved
+    const savedSession = getSession();
+    console.log('Session after save:', savedSession);
+    
+    // Test validation
+    const isValid = validateSession();
+    console.log('Session validation result:', isValid);
+    
+    return { session, savedSession, isValid };
+  } else {
+    console.log('No existing provider found - would create new user');
+    return { session: null, savedSession: null, isValid: false };
+  }
+};
+
 // Debug function to test complete user flow
 window.testCompleteUserFlow = function(cwid = '12345678', email = 'test@crimson.ua.edu'){
   console.log('=== TESTING COMPLETE USER FLOW ===');
@@ -3590,6 +4983,32 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
   const providers = load(STORAGE_KEYS.PROVIDERS, []);
   const existingProvider = providers.find(p => p.id === userId);
   
+  // If user exists, validate that the email matches
+  if (existingProvider && existingProvider.email && existingProvider.email !== email) {
+    alert(`The email ${email} does not match the email on file for CWID ${cwid}. Please enter the correct email address.`);
+    return;
+  }
+  
+  // Check if user is banned
+  if (existingProvider && existingProvider.banned) {
+    const now = new Date();
+    const banEndDate = new Date(existingProvider.banEndDate);
+    
+    if (now < banEndDate) {
+      // User is still banned
+      const daysLeft = Math.ceil((banEndDate - now) / (1000 * 60 * 60 * 24));
+      alert(`Your account has been banned. The ban will end on ${banEndDate.toLocaleDateString()} (${daysLeft} days remaining). You can still contact support for assistance.`);
+      return;
+    } else {
+      // Ban has expired, remove ban status
+      existingProvider.banned = false;
+      existingProvider.banStartDate = null;
+      existingProvider.banEndDate = null;
+      existingProvider.banDuration = null;
+      save(STORAGE_KEYS.PROVIDERS, load(STORAGE_KEYS.PROVIDERS, []));
+    }
+  }
+  
   if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
     // User has a complete profile - load it into session
     const profile = {
@@ -3617,7 +5036,7 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
     navigate('#create-profile');
   } else {
     // New user - create initial profile entry
-    providers.push({ 
+    const newUser = { 
       id: userId, 
       name: name, 
       services: ['New User'], 
@@ -3633,10 +5052,16 @@ document.getElementById('authSubmit').addEventListener('click', (e) => {
       campus: 'UA',
       cwid: cwid,
       email: email
-    });
+    };
+    providers.push(newUser);
     save(STORAGE_KEYS.PROVIDERS, providers);
     
+    console.log('Dialog auth: Created new user in providers list:', newUser);
     setSession({ id: userId, cwid, email, name, profile: null });
+    
+    // Notify admin page if it's currently open
+    notifyAdminPageUpdate();
+    
     document.getElementById('authDialog').close();
     console.log('Dialog auth: Navigating to #create-profile');
     navigate('#create-profile');
@@ -3670,6 +5095,70 @@ seed();
 updateAuthUI();
 
 // Check for existing session on page load
+console.log('=== SESSION CHECK ON PAGE LOAD ===');
+
+// Check if there's a global session that needs to be migrated
+const globalSession = load(STORAGE_KEYS.SESSION, null);
+const tabSession = getSession();
+
+if (globalSession && !tabSession) {
+  console.log('Found global session, migrating to tab-specific session');
+  const tabId = getTabId();
+  save(STORAGE_KEYS.SESSION + '_tab_' + tabId, globalSession);
+  localStorage.removeItem(STORAGE_KEYS.SESSION);
+  console.log('Session migrated to tab-specific storage');
+}
+
+console.log('Raw session from localStorage:', localStorage.getItem(STORAGE_KEYS.SESSION));
+console.log('Parsed session:', getSession());
+console.log('Session validation result:', validateSession());
+
+// Debug function to test page refresh simulation
+window.simulatePageRefresh = function() {
+  console.log('=== SIMULATING PAGE REFRESH ===');
+  
+  // Clear any existing session
+  setSession(null);
+  console.log('Cleared session');
+  
+  // Create a test session
+  const testSession = {
+    id: 'u_12345678',
+    cwid: '12345678',
+    email: 'test@crimson.ua.edu',
+    name: 'Test User',
+    profile: {
+      services: ['Tutor'],
+      availability: [1, 2, 3],
+      bio: 'Test bio'
+    }
+  };
+  
+  console.log('Setting test session:', testSession);
+  setSession(testSession);
+  
+  // Simulate what happens on page load
+  console.log('Simulating page load initialization...');
+  
+  // Check session
+  const session = getSession();
+  console.log('Session retrieved:', session);
+  
+  // Check validation
+  const isValid = validateSession();
+  console.log('Session validation:', isValid);
+  
+  // Simulate the navigation logic
+  if (isValid) {
+    console.log('✅ Session is valid - user would stay logged in');
+    console.log('Would navigate to:', location.hash || '#home');
+  } else {
+    console.log('❌ Session is invalid - user would be redirected to auth');
+  }
+  
+  return { session, isValid };
+};
+
 if(validateSession()) {
   const existingSession = getSession();
   console.log('Found valid existing session:', existingSession);
@@ -3680,6 +5169,7 @@ if(validateSession()) {
   navigate(targetHash);
 } else {
   console.log('No valid session found, showing auth page');
+  console.log('Session validation failed - user will be redirected to auth');
   // No session found, show auth page
   navigate('#auth');
 }
