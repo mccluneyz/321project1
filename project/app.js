@@ -872,7 +872,7 @@ function renderMessages(){
   const providerIds = providers.map(p => p.id);
   const providerMessages = messages.filter(m => 
     (m.to === session?.id || m.from === session?.id) && 
-    (providerIds.includes(m.to) || providerIds.includes(m.from) || m.from === 'support_bot' || m.to === 'support_bot')
+    (providerIds.includes(m.to) || providerIds.includes(m.from) || m.from === 'support_bot' || m.to === 'support_bot' || m.from === 'support_system' || m.to === 'support_system')
   );
   
   const threads = groupBy(providerMessages, m => m.threadId);
@@ -880,7 +880,9 @@ function renderMessages(){
     const last = thread[thread.length-1];
     const partner = last.from === session?.id ? last.toName : last.fromName;
     const partnerId = last.from === session?.id ? last.to : last.from;
-    const partnerProvider = partnerId === 'support_bot' ? { id: 'support_bot', name: 'Tide Together Support', services: ['Support'] } : providers.find(p => p.id === partnerId);
+    const partnerProvider = partnerId === 'support_bot' ? { id: 'support_bot', name: 'Tide Together Support', services: ['Support'] } : 
+                           partnerId === 'support_system' ? { id: 'support_system', name: 'Tide Together Support System', services: ['Support'] } : 
+                           providers.find(p => p.id === partnerId);
     const preview = last.text.length > 50 ? last.text.substring(0, 50) + '...' : last.text;
     const timeAgo = getTimeAgo(last.createdAt);
     const isUnread = last.from !== session?.id; // Simple unread logic
@@ -2965,6 +2967,9 @@ function submitSupportRequest(){
   // Send notification message to user
   sendSupportNotificationToUser(email, request.id);
   
+  // Send notification to all admins
+  sendSupportNotificationToAdmins(request);
+  
   alert('Support request submitted successfully! We\'ll get back to you soon.');
   
   // Clear form
@@ -3091,6 +3096,49 @@ function sendSupportResponseToUser(userEmail, adminResponse, requestId){
   console.log(`📨 Support response sent to user ${user.name} (${userEmail})`);
 }
 
+function sendSupportNotificationToAdmins(supportRequest){
+  const adminEmails = [
+    'faarnaoperez@crimson.ua.edu',
+    'dhnguyen3@crimson.ua.edu', 
+    'zkmccluney@crimson.ua.edu',
+    'jdmiller16@crimson.ua.edu'
+  ];
+  
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  
+  // Send notification to each admin
+  adminEmails.forEach(adminEmail => {
+    // Find admin user by email
+    const admin = providers.find(p => p.email === adminEmail);
+    
+    if(!admin) {
+      console.log(`Admin with email ${adminEmail} not found for support notification`);
+      return;
+    }
+    
+    // Create a message from the support system to the admin
+    const threadId = `admin_support_${supportRequest.id}`;
+    
+    const adminNotification = {
+      id: `msg_${Date.now()}_${admin.id}`,
+      threadId: threadId,
+      from: 'support_system',
+      fromName: 'Tide Together Support System',
+      to: admin.id,
+      toName: admin.name,
+      text: `🔔 New Support Request Received\n\nFrom: ${supportRequest.email}\nRequest ID: ${supportRequest.id}\nMessage: ${supportRequest.message}\n\nPlease review this request in the Admin Support section.`,
+      createdAt: Date.now()
+    };
+    
+    messages.push(adminNotification);
+    console.log(`📨 Support notification sent to admin ${admin.name} (${adminEmail})`);
+  });
+  
+  save(STORAGE_KEYS.MESSAGES, messages);
+  console.log(`📨 Support request notifications sent to all ${adminEmails.length} admins`);
+}
+
 function resetSupportRequests(){
   if(!confirm('Reset all support requests to sample data? This will delete all current requests.')) return;
   
@@ -3132,6 +3180,7 @@ function resetSupportRequests(){
 window.debugSupport = function(){
   const session = getSession();
   const supportRequests = load(STORAGE_KEYS.SUPPORT_REQUESTS, []);
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
   const adminEmails = [
     'faarnaoperez@crimson.ua.edu',
     'dhnguyen3@crimson.ua.edu', 
@@ -3140,19 +3189,87 @@ window.debugSupport = function(){
   ];
   const isAdmin = session && adminEmails.includes(session.email);
   
+  // Check for admin notifications
+  const adminNotifications = messages.filter(m => 
+    m.from === 'support_system' && 
+    m.fromName === 'Tide Together Support System'
+  );
+  
   console.log('=== SUPPORT SYSTEM DEBUG ===');
   console.log('Current session:', session);
   console.log('Is admin:', isAdmin);
   console.log('Support requests count:', supportRequests.length);
   console.log('Support requests:', supportRequests);
   console.log('Admin emails:', adminEmails);
+  console.log('Admin notifications count:', adminNotifications.length);
+  console.log('Admin notifications:', adminNotifications);
   console.log('===========================');
   
   return {
     session,
     isAdmin,
     supportRequests,
-    adminEmails
+    adminEmails,
+    adminNotifications
+  };
+};
+
+// Debug function to test admin notification system
+window.testAdminNotifications = function(){
+  console.log('=== TESTING ADMIN NOTIFICATIONS ===');
+  
+  // Create a test support request
+  const testRequest = {
+    id: `test_sr_${Date.now()}`,
+    email: 'test@crimson.ua.edu',
+    message: 'This is a test support request to verify admin notifications.',
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  
+  console.log('Sending test support request:', testRequest);
+  
+  // Send notification to admins
+  sendSupportNotificationToAdmins(testRequest);
+  
+  console.log('Test notification sent to all admins');
+  console.log('Check the Messages section to see admin notifications');
+  console.log('=====================================');
+};
+
+// Debug function to check if admin notifications are visible
+window.checkAdminNotifications = function(){
+  const session = getSession();
+  const messages = load(STORAGE_KEYS.MESSAGES, []);
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  
+  console.log('=== CHECKING ADMIN NOTIFICATIONS ===');
+  console.log('Current session:', session);
+  
+  // Get all support_system messages for current user
+  const adminNotifications = messages.filter(m => 
+    m.from === 'support_system' && m.to === session?.id
+  );
+  
+  console.log('Admin notifications for current user:', adminNotifications.length);
+  console.log('Admin notifications:', adminNotifications);
+  
+  // Check if they would be visible in messages
+  const providerIds = providers.map(p => p.id);
+  const visibleMessages = messages.filter(m => 
+    (m.to === session?.id || m.from === session?.id) && 
+    (providerIds.includes(m.to) || providerIds.includes(m.from) || m.from === 'support_bot' || m.to === 'support_bot' || m.from === 'support_system' || m.to === 'support_system')
+  );
+  
+  const visibleAdminNotifications = visibleMessages.filter(m => m.from === 'support_system');
+  
+  console.log('Visible admin notifications:', visibleAdminNotifications.length);
+  console.log('Visible admin notifications:', visibleAdminNotifications);
+  console.log('=====================================');
+  
+  return {
+    adminNotifications,
+    visibleAdminNotifications
   };
 };
 
@@ -3219,6 +3336,218 @@ window.debugAuthFlow = function(cwid, email){
     userId,
     existingProvider,
     shouldGoToHome: existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')
+  };
+};
+
+// Debug function to test returning user flow
+window.testReturningUser = function(cwid = '12345678', email = 'test@crimson.ua.edu'){
+  console.log('=== TESTING RETURNING USER ===');
+  
+  // First, create a complete profile for this user
+  const userId = `u_${cwid}`;
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  
+  // Remove any existing entry for this user
+  const filteredProviders = providers.filter(p => p.id !== userId);
+  
+  // Create a complete profile
+  const completeProfile = {
+    id: userId,
+    name: 'Test User',
+    firstName: 'Test',
+    lastName: 'User',
+    services: ['Tutoring', 'Study Groups'],
+    rating: 5.0,
+    reviewsCount: 0,
+    distanceMiles: 0.5,
+    bio: 'Test user with complete profile',
+    licenses: ['Teaching License'],
+    certifications: ['Math Tutor Certification'],
+    portfolio: [],
+    socials: {},
+    availability: ['Monday', 'Tuesday'],
+    campus: 'UA',
+    cwid: cwid,
+    email: email
+  };
+  
+  filteredProviders.push(completeProfile);
+  save(STORAGE_KEYS.PROVIDERS, filteredProviders);
+  
+  console.log('Created complete profile for user:', completeProfile);
+  
+  // Now test the authentication flow
+  console.log('Testing authentication flow...');
+  const authResult = debugAuthFlow(cwid, email);
+  
+  console.log('Auth result:', authResult);
+  console.log('Should go to home:', authResult.shouldGoToHome);
+  console.log('===========================');
+  
+  return authResult;
+};
+
+// Debug function to simulate the full authentication process
+window.simulateAuth = function(cwid = '12345678', email = 'test@crimson.ua.edu'){
+  console.log('=== SIMULATING FULL AUTH PROCESS ===');
+  
+  // Step 1: Check if user exists
+  const userId = `u_${cwid}`;
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const existingProvider = providers.find(p => p.id === userId);
+  
+  console.log('Step 1 - Check existing user:');
+  console.log('- User ID:', userId);
+  console.log('- Existing provider found:', !!existingProvider);
+  console.log('- Provider data:', existingProvider);
+  
+  if(existingProvider && existingProvider.services && existingProvider.services.length > 0 && !existingProvider.services.includes('New User')){
+    console.log('Step 2 - User has complete profile, loading into session:');
+    
+    // Simulate what submitAuthPage does
+    const profile = {
+      firstName: existingProvider.firstName || '',
+      lastName: existingProvider.lastName || '',
+      fullName: existingProvider.name,
+      services: existingProvider.services,
+      availability: existingProvider.availability || [],
+      bio: existingProvider.bio || '',
+      licenses: existingProvider.licenses || [],
+      certifications: existingProvider.certifications || [],
+      portfolio: existingProvider.portfolio || [],
+      socials: existingProvider.socials || {}
+    };
+    
+    const session = { id: userId, cwid, email, name: existingProvider.name, profile };
+    setSession(session);
+    
+    console.log('Session created:', session);
+    console.log('Profile loaded:', profile);
+    
+    // Step 3: Test gateIfNeeded
+    console.log('Step 3 - Testing gateIfNeeded:');
+    const gateResult = gateIfNeeded('#home');
+    console.log('Gate result:', gateResult);
+    console.log('Should allow access to home:', gateResult === null);
+    
+    return {
+      success: true,
+      session,
+      profile,
+      gateResult,
+      shouldAllowAccess: gateResult === null
+    };
+  } else {
+    console.log('Step 2 - User needs profile creation');
+    return {
+      success: false,
+      needsProfile: true
+    };
+  }
+};
+
+// Debug function to test session persistence
+window.testSessionPersistence = function(){
+  console.log('=== TESTING SESSION PERSISTENCE ===');
+  
+  // Check current session
+  const currentSession = getSession();
+  console.log('Current session:', currentSession);
+  
+  // Test session validation
+  const isValid = validateSession();
+  console.log('Session is valid:', isValid);
+  
+  // Test what happens on page load
+  console.log('Simulating page load...');
+  if(validateSession()) {
+    const existingSession = getSession();
+    console.log('✅ Session found on page load:', existingSession);
+    console.log('User would stay logged in after refresh');
+  } else {
+    console.log('❌ No valid session found');
+    console.log('User would be redirected to auth page');
+  }
+  
+  // Test localStorage persistence
+  const storedSession = localStorage.getItem(STORAGE_KEYS.SESSION);
+  console.log('Session in localStorage:', storedSession ? JSON.parse(storedSession) : null);
+  
+  console.log('===========================');
+  
+  return {
+    currentSession,
+    isValid,
+    storedInLocalStorage: !!storedSession
+  };
+};
+
+// Debug function to test complete user flow
+window.testCompleteUserFlow = function(cwid = '12345678', email = 'test@crimson.ua.edu'){
+  console.log('=== TESTING COMPLETE USER FLOW ===');
+  
+  // Step 1: Create a test user with complete profile
+  const userId = `u_${cwid}`;
+  const providers = load(STORAGE_KEYS.PROVIDERS, []);
+  const filteredProviders = providers.filter(p => p.id !== userId);
+  
+  const testUser = {
+    id: userId,
+    name: 'Test User',
+    firstName: 'Test',
+    lastName: 'User',
+    services: ['Tutoring', 'Study Groups'],
+    rating: 5.0,
+    reviewsCount: 0,
+    distanceMiles: 0.5,
+    bio: 'Test user with complete profile',
+    licenses: ['Teaching License'],
+    certifications: ['Math Tutor Certification'],
+    portfolio: [],
+    socials: {},
+    availability: ['Monday', 'Tuesday'],
+    campus: 'UA',
+    cwid: cwid,
+    email: email
+  };
+  
+  filteredProviders.push(testUser);
+  save(STORAGE_KEYS.PROVIDERS, filteredProviders);
+  
+  console.log('Step 1 - Created test user:', testUser);
+  
+  // Step 2: Simulate login
+  const profile = {
+    firstName: testUser.firstName,
+    lastName: testUser.lastName,
+    fullName: testUser.name,
+    services: testUser.services,
+    availability: testUser.availability,
+    bio: testUser.bio,
+    licenses: testUser.licenses,
+    certifications: testUser.certifications,
+    portfolio: testUser.portfolio,
+    socials: testUser.socials
+  };
+  
+  const session = { id: userId, cwid, email, name: testUser.name, profile };
+  setSession(session);
+  
+  console.log('Step 2 - User logged in:', session);
+  
+  // Step 3: Test session persistence
+  const persistenceTest = testSessionPersistence();
+  
+  console.log('Step 3 - Session persistence test:', persistenceTest);
+  
+  console.log('✅ Complete flow test finished');
+  console.log('User should now stay logged in after page refresh');
+  console.log('===========================');
+  
+  return {
+    testUser,
+    session,
+    persistenceTest
   };
 };
 
