@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tide Together</title>
+    <link rel="icon" href="assets/logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <header class="tt-header">
+        <div class="tt-header__inner">
+            <div class="tt-brand">
+                <img src="assets/logo.svg" alt="Tide Together" class="tt-logo" />
+                <div class="tt-brand__text">
+                    <div class="tt-title">Tide Together</div>
+                    <div class="tt-subtitle">Student Swap Services</div>
+                </div>
+            </div>
+            <nav class="tt-nav">
+                <button data-route="#home" class="tt-nav__link is-active">Home</button>
+                <button data-route="#about" class="tt-nav__link">About</button>
+                <button data-route="#choose-service" class="tt-nav__link">Find</button>
+                <button data-route="#messages" class="tt-nav__link">Messages</button>
+                <button data-route="#support" class="tt-nav__link">Support</button>
+                <button data-route="#admin" class="tt-nav__link">Admin</button>
+            </nav>
+            <div class="tt-auth">
+                <div id="profileIcon" class="tt-profile-icon" style="display: none;">
+                    <div class="tt-profile-avatar" id="profileAvatar">?</div>
+                </div>
+                <button id="loginBtn" class="tt-button tt-button--outline">Sign in</button>
+            </div>
+        </div>
+    </header>
+
+    <main id="app" class="tt-main">
+        <!-- Content will be rendered here by app.js -->
+    </main>
+
+    <footer class="tt-footer">
+        <div class="tt-footer__inner">
+            <div>© <span id="year"></span> Tide Together</div>
+            <div class="tt-footer__links">
+                <a href="#about">About</a>
+                <a href="#support">Contact Support</a>
+                <a href="#privacy">Privacy</a>
+                <a href="#terms">Terms</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Dialogs / Modals -->
+    <dialog id="authDialog" class="tt-dialog">
+        <form method="dialog" class="tt-dialog__card" id="authForm">
+            <h3 class="tt-dialog__title">Sign in</h3>
+            <p class="tt-dialog__subtitle">Use your CWID and Crimson email to continue.</p>
+            <div class="tt-field">
+                <label for="cwid">CWID</label>
+                <input id="cwid" name="cwid" inputmode="numeric" placeholder="e.g., 12345678" required />
+            </div>
+            <div class="tt-field">
+                <label for="email">Crimson Email</label>
+                <input id="email" name="email" type="email" placeholder="first.last@crimson.ua.edu" required />
+            </div>
+            <div class="tt-actions">
+                <button value="cancel" class="tt-button tt-button--ghost">Cancel</button>
+                <button id="authSubmit" value="default" class="tt-button">Continue</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="bookingDialog" class="tt-dialog">
+        <form method="dialog" class="tt-dialog__card" id="bookingForm">
+            <h3 class="tt-dialog__title">Book Service</h3>
+            <p class="tt-dialog__subtitle" id="bookingProvider"></p>
+            <div class="tt-field">
+                <label for="bookingService">Service</label>
+                <select id="bookingService"></select>
+            </div>
+            <div class="tt-field">
+                <label for="bookingDate">Date (next 14 days)</label>
+                <input id="bookingDate" type="date" required />
+            </div>
+            <div class="tt-field">
+                <label for="bookingTime">Available Time Slots (1 hour duration)</label>
+                <select id="bookingTime" required>
+                    <option value="">Select a date first</option>
+                </select>
+            </div>
+            <div class="tt-field">
+                <label for="bookingNote">Notes</label>
+                <textarea id="bookingNote" placeholder="Any helpful details..." rows="3"></textarea>
+            </div>
+            <div class="tt-field">
+                <label>
+                    <input type="checkbox" id="bookingReminder" style="margin-right: 8px;" />
+                    Set reminder for this booking
+                </label>
+            </div>
+            <div class="tt-actions">
+                <button type="button" onclick="closeBookingDialog()" class="tt-button tt-button--ghost">Cancel</button>
+                <button id="bookingSubmit" value="default" class="tt-button">Request Booking</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="api-client.js"></script>
+    <script src="app.js"></script>
+    <script>
+        document.getElementById('year').textContent = new Date().getFullYear();
+    </script>
+</body>
+</html>
+
+
